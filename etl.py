@@ -1,5 +1,6 @@
 import os
-import re
+import glob
+import pandas as pd
 import sqlalchemy as database
 
 
@@ -26,42 +27,43 @@ db_name = config.get('database')
 # specify connection string
 CONNECTION_STRING = f'mysql+pymysql://{db_user}:{db_pwd}@{db_host}:{db_port}/{db_name}'
 
+
 def load_files(directory, db):
-	for file in glob.glob(os.path.join(dirname, REGEX_FILENAME)):
-		load(file, db)
+    for file in glob.glob(os.path.join(directory, REGEX_FILENAME)):
+        load(file, db)
 
 
 def load(file, db):
-	florecence_data = read_florecence_file(file)
-	table=os.path.splitext(os.path.basename(file))[0]
+    fluorescence_data = read_fluorescence_file(file)
+    table=os.path.splitext(os.path.basename(file))[0]
 
-	sql = 'drop table if exists "{}"'.format(table)
-        db.execute(sql)
+    sql = 'drop table if exists "{}"'.format(table)
+    db.execute(sql)
 
-        sql = 'create table "{table}" ( {cols} )'.format(
-            table=table,
-            cols=','.join('"{}"'.format(col) for col in COLUMN_NAMES))))
-        db.execute(sql)
+    sql = 'create table "{table}" ( {cols} )'.format(
+        table=table,
+        cols=','.join('"{}"'.format(col) for col in COLUMN_NAMES))
+    db.execute(sql)
 
-	# Actually populating the table with the data
-        sql = 'insert into "{table}" values ( {vals} )'.format(
-            table=table,
-            vals=','.join('?' for col in COLUM_NAMES)
-	db.executemany(sql, (list(map(row.get, cols)) for row in fluorencence_data))
-
-
-def read_fluorence_file(file):
-	with open(file) as f:
-		data = LOAD_THE_FILE_INTO_PYTHON_OBJECT() #TODO NEEDS WORK
-	return data
+    # Actually populating the table with the data
+    sql = 'insert into "{table}" values ( {vals} )'.format(
+        table=table,
+        vals=','.join('?' for col in COLUMN_NAMES))
+    db.executemany(sql, (list(map(row.get, fluorescence_data)) for row in fluorescence_data))
 
 
-# TODO
-def LOAD_THE_FILE_INTO_PYTHON_OBJECT():
-	pass
+def read_fluorescence_file(file):
+    with open(file) as f:
+        data = load_the_file_into_a_python_object()  # TODO NEEDS WORK
+    return data
+
+
+# TODO write this function
+def load_the_file_into_a_python_object():
+    return pd.Dataframe()
 
 
 if __name__ == '__main__':
-	engine = database.create_engine(CONNECTION_STRING)
-	conn = engine.connect()
-	load_files(DIRECTORY_NAME, conn)
+    engine = database.create_engine(CONNECTION_STRING)
+    conn = engine.connect()
+    load_files(DIRECTORY_NAME, conn)
