@@ -1,0 +1,14 @@
+FROM jupyter/datascience-notebook:latest
+
+LABEL maintainer="NieuweNils"
+
+USER $NB_USER
+
+RUN mkdir ~/.ssh
+
+# Install dependencies
+RUN conda install numpy -y
+# Latest jupyter_server (1.7.0) has a bug still, so use 1.6.4 for now.
+RUN pip install npm jupyter_server==1.6.4 jupyterlab mlflow keras tensorflow
+
+RUN jupyter serverextension enable --py jupyterlab

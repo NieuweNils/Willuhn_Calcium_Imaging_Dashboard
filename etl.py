@@ -13,9 +13,9 @@ DIRECTORY_NAME = "my/favorite/path"
 config = {
     'host': 'localhost',
     'port': 3306,
-    'user': 'newuser',
-    'password': 'newpassword',
-    'database': 'test_db'
+    'user': 'user',
+    'password': 'password',
+    'database': 'db'
 }
 
 db_user = config.get('user')

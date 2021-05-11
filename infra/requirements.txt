@@ -1,0 +1,2 @@
+SQLAlchemy==1.4.14
+dash==1.11.0
