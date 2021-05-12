@@ -10,5 +10,6 @@ RUN mkdir ~/.ssh
 RUN conda install numpy -y
 # Latest jupyter_server (1.7.0) has a bug still, so use 1.6.4 for now.
 RUN pip install npm jupyter_server==1.6.4 jupyterlab mlflow keras tensorflow
+RUN pip install -r requirements_jupyter.txt
 
 RUN jupyter serverextension enable --py jupyterlab
