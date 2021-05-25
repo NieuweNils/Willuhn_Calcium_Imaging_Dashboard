@@ -6,6 +6,8 @@ USER $NB_USER
 
 RUN mkdir ~/.ssh
 
+COPY requirements_jupyter.txt .
+
 # Install dependencies
 RUN conda install numpy -y
 # Latest jupyter_server (1.7.0) has a bug still, so use 1.6.4 for now.

@@ -19,7 +19,7 @@ services:
   dash:
     build:
       context: .
-      dockerfile: Dockerfile.dash.dash
+      dockerfile: Dockerfile.dash
     container_name: dash_dash
     command: python app.py
     volumes:
@@ -43,8 +43,8 @@ services:
       - 8888
     ports:
       - 8991:8888
-  networks:
-    mlflow-net:
+networks:
+  mlflow-net:
 
 volumes:
   my-db:
