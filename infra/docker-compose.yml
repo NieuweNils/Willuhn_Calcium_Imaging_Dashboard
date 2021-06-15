@@ -17,9 +17,7 @@ services:
       - my-db:/var/lib/mysql
 
   dash:
-    build:
-      context: .
-      dockerfile: Dockerfile.dash
+    image: willuhn_lab/dash
     container_name: dash_dash
     command: python app.py
     volumes:
@@ -33,7 +31,7 @@ services:
     networks:
       - mlflow-net
     build:
-      context: .
+      context: ../dash
       dockerfile: Dockerfile.jupyter
     working_dir: "/container-notebooks"
     volumes:

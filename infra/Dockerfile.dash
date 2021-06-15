@@ -4,7 +4,11 @@ ENV PYTHONUNBUFFERED 1
 RUN mkdir /code
 WORKDIR /code
 
-COPY requirements_dash.txt /code/
-RUN pip install -r requirements_dash.txt
+COPY requirements.txt /code/
+RUN pip install -r requirements.txt
 
+RUN pwd
+RUN ls ./
+RUN ls /code
 COPY app.py /code/
+RUN ls /code
