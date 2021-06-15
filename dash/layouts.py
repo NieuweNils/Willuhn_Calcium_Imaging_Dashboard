@@ -1,10 +1,13 @@
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_table
+import numpy as np
 import plotly.graph_objs as go
-from dash.development.base_component import Component
+import skimage.io as skim_io
+from scipy.io import loadmat
 
 from app import app
+from figures import animated_heatmap, animated_line_chart
 
 ####################################################################################################
 # 000 - FORMATTING INFO
@@ -76,7 +79,7 @@ summary_text_style = {
     'letter-spacing': '0.04em'
 }
 
-####################### Corporate chart formatting
+####################### Chart formatting
 
 title = {
     'font': {
@@ -146,7 +149,6 @@ layout = go.Layout(
 # Set datasource
 session_overview_datasource = 'data/datasource.xlsx'
 
-
 # TODO: Define Data mappings
 
 
@@ -155,7 +157,15 @@ session_overview_datasource = 'data/datasource.xlsx'
 ####################################################################################################
 
 ###########################
-# TODO: Import data
+data_after_CNMF_E = loadmat('data/concat_may_NoRMCorre_results.mat')
+data_after_CNMF_E = data_after_CNMF_E['results']
+fluorescence_traces = np.array(data_after_CNMF_E['C'][0][0])
+data_line_chart = fluorescence_traces
+
+tiff_data = skim_io.imread("data/concat_may_NoRMCorre.tif")
+data_heatmap = tiff_data[0:1000]
+layout_heatmap = {"title": "Animation!!!"}
+
 
 ################################################################################################################################################## SET UP END
 
@@ -217,42 +227,42 @@ def get_navbar(p='session_overview'):
 
     navbar = html.Div([
 
-            html.Div([], className='col-3'),
+        html.Div([], className='col-3'),
 
-            html.Div([
-                dcc.Link(
-                    html.H4(children='Session overview',
-                            style=style['session_overview']),
-                    href='/session_overview'
-                )
-            ],
-                className='col-2'),
-
-            html.Div([
-                dcc.Link(
-                    html.H4(children='Double cell selector',
-                            style=style['double_cell_selector']),
-                    href='/double_cell_selector'
-                )
-            ],
-                className='col-2'),
-
-            html.Div([
-                dcc.Link(
-                    html.H4(children='Optional 3rd page',
-                            style=style['page_3']),
-                    href='/page_3'
-                )
-            ],
-                className='col-2'),
-
-            html.Div([], className='col-3')
-
+        html.Div([
+            dcc.Link(
+                html.H4(children='Session overview',
+                        style=style['session_overview']),
+                href='/session_overview'
+            )
         ],
-            className='row',
-            style={'background-color': colors['dark-green'],
-                   'box-shadow': '2px 5px 5px 1px rgba(255, 101, 131, .5)'}
-        )
+            className='col-2'),
+
+        html.Div([
+            dcc.Link(
+                html.H4(children='Double cell selector',
+                        style=style['double_cell_selector']),
+                href='/double_cell_selector'
+            )
+        ],
+            className='col-2'),
+
+        html.Div([
+            dcc.Link(
+                html.H4(children='Optional 3rd page',
+                        style=style['page_3']),
+                href='/page_3'
+            )
+        ],
+            className='col-2'),
+
+        html.Div([], className='col-3')
+
+    ],
+        className='row',
+        style={'background-color': colors['dark-green'],
+               'box-shadow': '2px 5px 5px 1px rgba(255, 101, 131, .5)'}
+    )
 
     return navbar
 
@@ -417,21 +427,23 @@ session_overview = html.Div([
                 # Chart Column
                 html.Div([
                     dcc.Graph(
-                        id='session_overview-count-day')
+                        # TODO: make the selection criteria user defined
+                        figure=animated_heatmap(data=data_heatmap, layout=layout_heatmap, skip_rate=50),
+                        id='session_overview-animated-heatmap')
                 ],
                     className='col-4'),
 
                 # Chart Column
                 html.Div([
                     dcc.Graph(
-                        id='session_overview-count-month')
+                        id='session_overview-UNUSED')
                 ],
                     className='col-4'),
 
                 # Chart Column
                 html.Div([
                     dcc.Graph(
-                        id='session_overview-weekly-heatmap')
+                        id='session_overview-UNUSED')
                 ],
                     className='col-4')
 
@@ -443,21 +455,23 @@ session_overview = html.Div([
                 # Chart Column
                 html.Div([
                     dcc.Graph(
-                        id='session_overview-count-country')
+                        # TODO: make the selection criteria user defined
+                        figure=animated_line_chart(data=data_line_chart[7, 0:5000]),
+                        id='session_overview-animated-line-chart')
                 ],
                     className='col-4'),
 
                 # Chart Column
                 html.Div([
                     dcc.Graph(
-                        id='session_overview-bubble-county')
+                        id='session_overview-UNUSED')
                 ],
                     className='col-4'),
 
                 # Chart Column
                 html.Div([
                     dcc.Graph(
-                        id='session_overview-count-city')
+                        id='session_overview-UNUSED')
                 ],
                     className='col-4')
 
