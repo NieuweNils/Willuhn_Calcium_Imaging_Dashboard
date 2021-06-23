@@ -2,7 +2,10 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 
+# NB: DO NOT AUTOFORMAT THIS IMPORT, PYCHARM DOESN'T UNDERSTAND THIS IS NEEDED
+import callbacks
 from app import app
+from app import server
 from layouts import session_overview, double_cell_selector, page_3
 
 app.layout = html.Div([

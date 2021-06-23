@@ -1,10 +1,14 @@
 jupyter/data/*
+dash/data/*
+data/*
 Matlab/*
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-
+*.mp4
+*.mov
+*.webm
 # C extensions
 *.so
 

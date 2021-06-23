@@ -1,153 +1,20 @@
 import dash_core_components as dcc
 import dash_html_components as html
+# import dash_player as player
 import dash_table
 import numpy as np
-import plotly.graph_objs as go
 import skimage.io as skim_io
 from scipy.io import loadmat
 
 from app import app
 from figures import animated_heatmap, animated_line_chart
-
-####################################################################################################
-# 000 - FORMATTING INFO
-####################################################################################################
-
-####################### CSS formatting
-colors = {
-    'dark-blue-grey': 'rgb(62, 64, 76)',
-    'medium-blue-grey': 'rgb(77, 79, 91)',
-    'superdark-green': 'rgb(41, 56, 55)',
-    'dark-green': 'rgb(57, 81, 85)',
-    'medium-green': 'rgb(93, 113, 120)',
-    'light-green': 'rgb(186, 218, 212)',
-    'pink-red': 'rgb(255, 101, 131)',
-    'dark-pink-red': 'rgb(247, 80, 99)',
-    'white': 'rgb(251, 251, 252)',
-    'light-grey': 'rgb(208, 206, 206)'
-}
-
-graph_row_style = {
-    'margin-left': '15px',
-    'margin-right': '15px'
-}
-
-graph_col_style = {
-    'border-radius': '10px',
-    'border-style': 'solid',
-    'border-width': '1px',
-    'border-color': colors['superdark-green'],
-    'background-color': colors['superdark-green'],
-    'box-shadow': '0px 0px 17px 0px rgba(186, 218, 212, .5)',
-    'padding-top': '10px'
-}
-
-filter_border_style = {
-    'border-radius': '0px 0px 10px 10px',
-    'border-style': 'solid',
-    'border-width': '1px',
-    'border-color': colors['light-green'],
-    'background-color': colors['light-green'],
-    'box-shadow': '2px 5px 5px 1px rgba(255, 101, 131, .5)'
-}
-
-navbar_current_page = {
-    'text-decoration': 'underline',
-    'text-decoration-color': colors['pink-red'],
-    'text-shadow': '0px 0px 1px rgb(251, 251, 252)'
-}
-
-summary_style = {
-    'border-radius': '10px',
-    'border-style': 'solid',
-    'border-width': '1px',
-    'border-color': 'rgb(251, 251, 252, 0.1)',
-    'margin-left': '15px',
-    'margin-right': '15px',
-    'margin-top': '15px',
-    'margin-bottom': '15px',
-    'padding-top': '5px',
-    'padding-bottom': '5px',
-    'background-color': 'rgb(251, 251, 252, 0.1)'
-}
-
-summary_text_style = {
-    'text-align': 'left',
-    'font-weight': '350',
-    'color': colors['white'],
-    'font-size': '1.5rem',
-    'letter-spacing': '0.04em'
-}
-
-####################### Chart formatting
-
-title = {
-    'font': {
-        'size': 16,
-        'color': colors['white']}
-}
-
-x_axis = {
-    'showgrid': False,
-    'linecolor': colors['light-grey'],
-    'color': colors['light-grey'],
-    'tickangle': 315,
-    'titlefont': {
-        'size': 12,
-        'color': colors['light-grey']},
-    'tickfont': {
-        'size': 11,
-        'color': colors['light-grey']},
-    'zeroline': False
-}
-
-y_axis = {
-    'showgrid': True,
-    'color': colors['light-grey'],
-    'gridwidth': 0.5,
-    'gridcolor': colors['dark-green'],
-    'linecolor': colors['light-grey'],
-    'titlefont': {
-        'size': 12,
-        'color': colors['light-grey']},
-    'tickfont': {
-        'size': 11,
-        'color': colors['light-grey']},
-    'zeroline': False
-}
-
-font_family = 'Dosis'
-
-legend = {
-    'orientation': 'h',
-    'yanchor': 'bottom',
-    'y': 1.01,
-    'xanchor': 'right',
-    'x': 1.05,
-    'font': {'size': 9, 'color': colors['light-grey']}
-}  # Legend will be on the top right, above the graph, horizontally
-
-margins = {'l': 5, 'r': 5, 't': 45, 'b': 15}  # Set top margin to in case there is a legend
-
-layout = go.Layout(
-    font={'family': font_family},
-    title=title,
-    title_x=0.5,  # Align chart title to center
-    paper_bgcolor='rgba(0,0,0,0)',
-    plot_bgcolor='rgba(0,0,0,0)',
-    xaxis=x_axis,
-    yaxis=y_axis,
-    height=270,
-    legend=legend,
-    margin=margins
-)
+from formatting import *
 
 ####################################################################################################
 # 000 - DATA MAPPING
 ####################################################################################################
 
 # Set datasource
-session_overview_datasource = 'data/datasource.xlsx'
 
 # TODO: Define Data mappings
 
@@ -164,7 +31,6 @@ data_line_chart = fluorescence_traces
 
 tiff_data = skim_io.imread("data/concat_may_NoRMCorre.tif")
 data_heatmap = tiff_data[0:1000]
-layout_heatmap = {"title": "Animation!!!"}
 
 
 ################################################################################################################################################## SET UP END
@@ -428,15 +294,19 @@ session_overview = html.Div([
                 html.Div([
                     dcc.Graph(
                         # TODO: make the selection criteria user defined
-                        figure=animated_heatmap(data=data_heatmap, layout=layout_heatmap, skip_rate=50),
+                        figure=animated_heatmap(data=data_heatmap, skip_rate=50),
                         id='session_overview-animated-heatmap')
                 ],
                     className='col-4'),
 
                 # Chart Column
                 html.Div([
-                    dcc.Graph(
-                        id='session_overview-UNUSED')
+                    # player.DashPlayer(
+                    #     id="session_overview-fluorescence-video-player",
+                    #     url="/output.webm",
+                    #     controls=True,
+                    #     width="100%",
+                    # )
                 ],
                     className='col-4'),
 
@@ -449,6 +319,38 @@ session_overview = html.Div([
 
             ],
                 className='row'),  # Internal row
+
+            html.Div(  # Internal Row
+                [
+                    html.Div(  # Chart Column 1
+                        [
+                            dcc.Slider(
+                                id="slider",
+                                min=0,
+                                max=10,
+                                step=0.5,
+                                value=0,
+                                marks={
+                                    0: {"label": "0s", "style": {"color": "black"}},
+                                    2: {"label": "2s", "style": {"color": "black"}},
+                                    4: {"label": "4s", "style": {"color": "black"}},
+                                    6: {"label": "6s", "style": {"color": "black"}},
+                                    8: {"label": "8s", "style": {"color": "black"}},
+                                    10: {"label": "10s", "style": {"color": "black"}},
+                                },
+                            ),
+                        ],
+                        style={"width": "30%", "display": "inline-block"},
+                    ),  # Chart column 1
+
+                    html.Div(  # Chart Column 2
+                        html.Br()
+                    ),  # Chart column 2
+
+                    html.Div(  # Chart Column 3
+                        html.Br()
+                    ),  # Chart column 3
+                ]),  # Internal Row
 
             html.Div([  # Internal row
 
@@ -522,11 +424,28 @@ double_cell_selector = html.Div([
 
     #####################
     # Row 5 : Charts
-    html.Div([  # External row
+    html.Div([
+        dcc.Upload(
+            id='upload-data',
+            children=html.Div([
+                'Drag and Drop or ',
+                html.A('Select .mat Files')
+            ]),
+            style=upload_button_style,
+            # Allow multiple files to be uploaded
+            multiple=True
+        ),
+        html.Div(id='drop-down-selector'),
+        html.Div(id='drop-down-selection-value'),
+    ]),
+    html.Div([
+        html.Div([
+                dcc.Graph(id='cell-shape-plot'),
+            ], className='col-4'
+        ),
 
-        html.Br()
-
-    ])
+    ], className='row'
+    )
 
 ])
 
