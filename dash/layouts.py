@@ -399,6 +399,7 @@ session_overview = html.Div([
 # 002 - Page 2
 ####################################################################################################
 
+
 double_cell_selector = html.Div([
 
     #####################
@@ -435,20 +436,40 @@ double_cell_selector = html.Div([
             # Allow multiple files to be uploaded
             multiple=True
         ),
-        html.Div(id='drop-down-selector'),
-        html.Div(id='drop-down-selection-value'),
+
     ]),
     html.Div([
+        html.Div(id='drop-down-selector-1',
+                 className='col-4'),
+        html.Div(id='drop-down-selector-2',
+                 className='col-4'),
+        html.Div(id='drop-down-selector-3',
+                 className='col-4'),
+    ], className='row'
+    ),
+
+    get_emptyrow(),
+
+    html.Div([
         html.Div([
-                dcc.Graph(id='cell-shape-plot'),
+                dcc.Graph(id='cell-shape-plot-1'),
             ], className='col-4'
         ),
-
+        html.Div([
+                dcc.Graph(id='cell-shape-plot-2'),
+            ], className='col-4'
+        ),
+        html.Div([
+                dcc.Graph(id='cell-shape-plot-3'),
+            ], className='col-4'
+        ),
     ], className='row'
-    )
+    ),
+
+    dcc.Store(id='locations'),
+    dcc.Store(id='metadata'),
 
 ])
-
 ####################################################################################################
 # 003 - Optional 3rd page
 ####################################################################################################

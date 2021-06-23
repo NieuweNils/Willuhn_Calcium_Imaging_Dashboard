@@ -34,7 +34,14 @@ def cell_outline_chart(locations_df, metadata, cell_number):
 
     heatmap = go.Heatmap(z=image_neuron,
                          colorscale='gray')
-    layout = {'title': f'contour of cell {cell_number}'}
+    layout = {'title':  {
+                        'text': f'contour of cell {cell_number}',
+                        'x': 0.5
+                        },
+              'font':   {
+                        'size': 18,
+                        },
+              }
     figure = go.Figure(data=heatmap,
                        layout=layout)
 
