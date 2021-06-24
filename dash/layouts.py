@@ -473,7 +473,6 @@ double_cell_selector = html.Div([
         ),
     ], className='row'
     ),
-    html.Div(id='check-locations'),
     dcc.Store(id='locations'),
     dcc.Store(id='metadata'),
 

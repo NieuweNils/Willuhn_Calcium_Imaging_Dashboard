@@ -114,41 +114,43 @@ def initialise_new_data_screen(locations, metadata):
             ]
 
 
-# @app.callback(
-#     [
-#         Output('cell-shape-plot-1', 'figure'),
-#         Output('cell-shape-plot-2', 'figure'),
-#         Output('cell-shape-plot-3', 'figure'),
-#     ],
-#     [
-#         Input('locations-df', 'data'),
-#         Input('metadata', 'data'),
-#         Input('cell-selector-drop-down-1', 'value'),  # TODO: change to State?
-#         Input('cell-selector-drop-down-2', 'value'),  # TODO: change to State?
-#         Input('cell-selector-drop-down-3', 'value'),  # TODO: change to State?
-#     ])
-# def update_cell_shape_plots(locations, metadata, cell_1, cell_2, cell_3):
-#     print("update_cell_shape_plots called")
-#     locations_df = pd.read_json(locations)
-#     figure1 = cell_outline_chart(locations_df, metadata, cell_1)
-#     figure2 = cell_outline_chart(locations_df, metadata, cell_2)
-#     figure3 = cell_outline_chart(locations_df, metadata, cell_3)
-#     return [figure1,  # output 1
-#             figure2,  # output 2
-#             figure3]  # output 3
+@app.callback(
+    [
+        Output('cell-shape-plot-1', 'figure'),
+        Output('cell-shape-plot-2', 'figure'),
+        Output('cell-shape-plot-3', 'figure'),
+    ],
+    [
+        Input('locations', 'data'),
+        Input('metadata', 'data'),
+        Input('cell-selector-drop-down-1', 'value'),  # TODO: change to State?
+        Input('cell-selector-drop-down-2', 'value'),  # TODO: change to State?
+        Input('cell-selector-drop-down-3', 'value'),  # TODO: change to State?
+    ],
+    prevent_initial_call=True
+    )
+def update_cell_shape_plots(locations, metadata, cell_1, cell_2, cell_3):
+    print("update_cell_shape_plots called")
 
+    start_time = time.time()
+    locations_df = pd.read_json(locations)
+    duration = time.time() - start_time
+    print(f"the data took {duration}s to load into a dataframe")
 
-# @app.callback(
-#     Output('check-locations', 'children'),
-#     [
-#         Input('locations', 'data'),
-#         Input('metadata', 'data'),
-#     ],
-#
-# )
-# def check_locations(locations, metadata):
-#     print('Listener to Inputs "locations-data" & "metadata-data" is picking up the update')
-#     if locations:
-#         return f'I loaded the locations& metadata. Here is the metadata: {metadata}'
-#     else:
-#         return "I wasn't able to load any data"
+    start_time = time.time()
+    figure1 = cell_outline_chart(locations_df, metadata, cell_1)
+    duration = time.time() - start_time
+    print(f"that figure took {duration}s to make")
+
+    start_time = time.time()
+    figure2 = cell_outline_chart(locations_df, metadata, cell_2)
+    duration = time.time() - start_time
+    print(f"that figure took {duration}s to make")
+
+    start_time = time.time()
+    figure3 = cell_outline_chart(locations_df, metadata, cell_3)
+    duration = time.time() - start_time
+    print(f"that figure took {duration}s to make")
+    return [figure1,  # output 1
+            figure2,  # output 2
+            figure3]  # output 3
