@@ -1,7 +1,7 @@
 import plotly.graph_objs as go
 
 ####################### CSS formatting
-colors = {
+colours = {
     'dark-blue-grey': 'rgb(62, 64, 76)',
     'medium-blue-grey': 'rgb(77, 79, 91)',
     'superdark-green': 'rgb(41, 56, 55)',
@@ -23,8 +23,8 @@ graph_col_style = {
     'border-radius': '10px',
     'border-style': 'solid',
     'border-width': '1px',
-    'border-color': colors['superdark-green'],
-    'background-color': colors['superdark-green'],
+    'border-color': colours['superdark-green'],
+    'background-color': colours['superdark-green'],
     'box-shadow': '0px 0px 17px 0px rgba(186, 218, 212, .5)',
     'padding-top': '10px',
 }
@@ -33,14 +33,14 @@ filter_border_style = {
     'border-radius': '0px 0px 10px 10px',
     'border-style': 'solid',
     'border-width': '1px',
-    'border-color': colors['light-green'],
-    'background-color': colors['light-green'],
+    'border-color': colours['light-green'],
+    'background-color': colours['light-green'],
     'box-shadow': '2px 5px 5px 1px rgba(255, 101, 131, .5)',
 }
 
 navbar_current_page = {
     'text-decoration': 'underline',
-    'text-decoration-color': colors['pink-red'],
+    'text-decoration-color': colours['pink-red'],
     'text-shadow': '0px 0px 1px rgb(251, 251, 252)',
 }
 
@@ -61,7 +61,7 @@ summary_style = {
 summary_text_style = {
     'text-align': 'left',
     'font-weight': '350',
-    'color': colors['white'],
+    'color': colours['white'],
     'font-size': '1.5rem',
     'letter-spacing': '0.04em',
 }
@@ -71,38 +71,38 @@ summary_text_style = {
 title = {
     'font': {
         'size': 16,
-        'color': colors['white'], }
+        'color': colours['white'], }
 }
 
 x_axis = {
     'showgrid': False,
-    'linecolor': colors['light-grey'],
-    'color': colors['white'],
+    'linecolor': colours['light-grey'],
+    'color': colours['white'],
     'tickangle': 315,
     'titlefont': {
         'size': 12,
-        'color': colors['white'],
+        'color': colours['white'],
     },
     'tickfont': {
         'size': 11,
-        'color': colors['white'],
+        'color': colours['white'],
     },
     'zeroline': False,
 }
 
 y_axis = {
     'showgrid': True,
-    'color': colors['white'],
+    'color': colours['white'],
     'gridwidth': 0.5,
-    'gridcolor': colors['white'],
-    'linecolor': colors['white'],
+    'gridcolor': colours['white'],
+    'linecolor': colours['white'],
     'titlefont': {
         'size': 12,
-        'color': colors['white'],
+        'color': colours['white'],
     },
     'tickfont': {
         'size': 11,
-        'color': colors['white'],
+        'color': colours['white'],
     },
     'zeroline': False,
 }
@@ -116,7 +116,7 @@ legend = {
     'xanchor': 'right',
     'x': 1.05,
     'font': {'size': 9,
-             'color': colors['white'],
+             'color': colours['white'],
              }
 }  # Legend will be on the top right, above the graph, horizontally
 
@@ -126,8 +126,8 @@ layout = go.Layout(
     font={'family': font_family},
     title=title,
     title_x=0.5,  # Align chart title to center
-    paper_bgcolor=colors['superdark-green'],  # rgba(0,0,0,0)',
-    plot_bgcolor=colors['white'],
+    paper_bgcolor=colours['superdark-green'],  # rgba(0,0,0,0)',
+    plot_bgcolor=colours['white'],
     xaxis=x_axis,
     yaxis=y_axis,
     height=270,
@@ -144,5 +144,5 @@ upload_button_style = {
     'borderRadius': '5px',
     'textAlign': 'center',
     'margin': '10px',
-    'color': colors['white'],
+    'color': colours['white'],
 }

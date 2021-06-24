@@ -1,23 +1,26 @@
 import base64
 import io
+import time
 
 import dash_core_components as dcc
+import dash_table
 from dash.dependencies import Output, Input, State
 import pandas as pd
 from scipy.io import loadmat
 
 from app import app
-from data_processing import retrieve_metadata, get_mean_locations, shortest_distances
+from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours
 from figures import cell_outline_chart
+from formatting import colours
 
-
-# TODO: check is these are neccesary
+# TODO: check if this is necessary
 @app.callback(Output("slider", "value"),
               [Input("session_overview-animated-line-chart", "currentTime")])
 def update_slider(current_time):
     return current_time
 
 
+# TODO: check if this is necessary
 @app.callback(Output("video-player", "playing"),
               [Input("play-button", "n_clicks")],
               [State("session_overview-animated-line-chart", "playing")],)
@@ -45,10 +48,10 @@ def parse_data(contents, filename):
     return locations_df, options
 
 
-def get_drop_down_list(neurons_closest_together_df):
+def get_drop_down_list(neighbours_df):
     drop_down_list = []
-    for index, row in neurons_closest_together_df.iterrows():
-        drop_down_list.append({'label': f'cell {int(row[0])} & cell {int(row[1])}', 'value': row[2]})
+    for index, row in neighbours_df.iterrows():
+        drop_down_list.append({'label': f'cell {int(row[0])}', 'value': int(row[0])})
     return drop_down_list
 
 
@@ -73,43 +76,79 @@ def load_data(list_of_contents, list_of_names):
                 Output('drop-down-selector-1', 'children'),
                 Output('drop-down-selector-2', 'children'),
                 Output('drop-down-selector-3', 'children'),
-              ],
+                Output('neurons-close-together', 'children'),
+                ],
               [Input('locations', 'data'),
               Input('metadata', 'data')],
+              prevent_initial_call=True,
               )
-def update_drop_down(locations, metadata):
-    print("create_drop_down called ")
+def initialise_new_data_screen(locations, metadata):
+    print("update_drop_down called ")
+    start_time = time.time()
     locations_df = pd.read_json(locations)
     mean_locations = get_mean_locations(locations_df, metadata)
     neurons_closest_together = shortest_distances(mean_locations)
-    drop_down_list_1 = get_drop_down_list(neurons_closest_together)
-    drop_down_list_2 = get_drop_down_list(neurons_closest_together)
-    drop_down_list_3 = get_drop_down_list(neurons_closest_together)
-    return [dcc.Dropdown(id='cell-selector-drop-down-1', options=drop_down_list_1),
+    neighbour_df = a_neurons_neighbours(neurons_closest_together)
+    duration = time.time()-start_time
+    print(f"the data part above took {duration}s")
+    drop_down_list = get_drop_down_list(neighbour_df)
+    drop_down_list_2 = get_drop_down_list (neighbour_df)
+    drop_down_list_3 = get_drop_down_list(neighbour_df)
+    table_columns = [{"name": i, "id": i} for i in neurons_closest_together.columns]
+    table_data = neurons_closest_together.to_dict('records')
+    return [dcc.Dropdown(id='cell-selector-drop-down-1', options=drop_down_list),
             dcc.Dropdown(id='cell-selector-drop-down-2', options=drop_down_list_2),
             dcc.Dropdown(id='cell-selector-drop-down-3', options=drop_down_list_3),
+            dash_table.DataTable(id='neurons-close-together-table',
+                                 columns=table_columns,
+                                 data=table_data,
+                                 fixed_rows={'headers': True},
+                                 style_table={'height': '300px',
+                                              'width': '600px',
+                                              'marginLeft': 'auto',
+                                              'marginRight': 'auto',
+                                              'overflowY': 'auto'},
+                                 style_cell={'backgroundColor': colours['dark-green'],
+                                             'color': colours['white']}
+                                 )
             ]
 
 
-@app.callback(
-    [
-        Output('cell-shape-plot-1', 'figure'),
-        Output('cell-shape-plot-2', 'figure'),
-        Output('cell-shape-plot-3', 'figure'),
-    ],
-    [
-        Input('locations-df', 'data'),
-        Input('metadata', 'data'),
-        Input('cell-selector-drop-down-1', 'value'),
-        Input('cell-selector-drop-down-2', 'value'),
-        Input('cell-selector-drop-down-3', 'value'),
-    ])
-def update_cell_shape_plots(locations_df, metadata, cell_1, cell_2, cell_3):
-    print("update_cell_shape_plots called")
-    figure1 = cell_outline_chart(locations_df, metadata, cell_1)
-    figure2 = cell_outline_chart(locations_df, metadata, cell_2)
-    figure3 = cell_outline_chart(locations_df, metadata, cell_3)
-    return [figure1,  # output 1
-            figure2,  # output 2
-            figure3]  # output 3
+# @app.callback(
+#     [
+#         Output('cell-shape-plot-1', 'figure'),
+#         Output('cell-shape-plot-2', 'figure'),
+#         Output('cell-shape-plot-3', 'figure'),
+#     ],
+#     [
+#         Input('locations-df', 'data'),
+#         Input('metadata', 'data'),
+#         Input('cell-selector-drop-down-1', 'value'),  # TODO: change to State?
+#         Input('cell-selector-drop-down-2', 'value'),  # TODO: change to State?
+#         Input('cell-selector-drop-down-3', 'value'),  # TODO: change to State?
+#     ])
+# def update_cell_shape_plots(locations, metadata, cell_1, cell_2, cell_3):
+#     print("update_cell_shape_plots called")
+#     locations_df = pd.read_json(locations)
+#     figure1 = cell_outline_chart(locations_df, metadata, cell_1)
+#     figure2 = cell_outline_chart(locations_df, metadata, cell_2)
+#     figure3 = cell_outline_chart(locations_df, metadata, cell_3)
+#     return [figure1,  # output 1
+#             figure2,  # output 2
+#             figure3]  # output 3
 
+
+# @app.callback(
+#     Output('check-locations', 'children'),
+#     [
+#         Input('locations', 'data'),
+#         Input('metadata', 'data'),
+#     ],
+#
+# )
+# def check_locations(locations, metadata):
+#     print('Listener to Inputs "locations-data" & "metadata-data" is picking up the update')
+#     if locations:
+#         return f'I loaded the locations& metadata. Here is the metadata: {metadata}'
+#     else:
+#         return "I wasn't able to load any data"

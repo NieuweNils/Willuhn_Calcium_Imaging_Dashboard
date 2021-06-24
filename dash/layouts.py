@@ -8,7 +8,8 @@ from scipy.io import loadmat
 
 from app import app
 from figures import animated_heatmap, animated_line_chart
-from formatting import *
+from formatting import colours, navbar_current_page, filter_border_style, font_family, summary_style, graph_col_style, \
+    graph_row_style, upload_button_style
 
 ####################################################################################################
 # 000 - DATA MAPPING
@@ -69,7 +70,7 @@ def get_header():
     ],
         className='row',
         style={'height': '4%',
-               'background-color': colors['superdark-green']}
+               'background-color': colours['superdark-green']}
     )
 
     return header
@@ -126,7 +127,7 @@ def get_navbar(p='session_overview'):
 
     ],
         className='row',
-        style={'background-color': colors['dark-green'],
+        style={'background-color': colours['dark-green'],
                'box-shadow': '2px 5px 5px 1px rgba(255, 101, 131, .5)'}
     )
 
@@ -183,7 +184,7 @@ session_overview = html.Div([
                     html.Div([
                         html.H5(
                             children='Filters by Date:',
-                            style={'text-align': 'left', 'color': colors['medium-blue-grey']}
+                            style={'text-align': 'left', 'color': colours['medium-blue-grey']}
                         ),
                         # Date range picker
                         html.Div(['Select a date range: ',
@@ -214,7 +215,7 @@ session_overview = html.Div([
                     html.Div([
                         html.H5(
                             children='Optional second filter:',
-                            style={'text-align': 'left', 'color': colors['medium-blue-grey']}
+                            style={'text-align': 'left', 'color': colours['medium-blue-grey']}
                         ),
                     ],
                         style={'margin-top': '10px',
@@ -254,7 +255,7 @@ session_overview = html.Div([
         html.Div([  # External 10-column
 
             html.H2(children="Traces",
-                    style={'color': colors['white']}),
+                    style={'color': colours['white']}),
 
             html.Div([  # Internal row - RECAPS
 
@@ -267,14 +268,14 @@ session_overview = html.Div([
                             'backgroundColor': 'transparent',
                             'fontFamily': font_family,
                             'font-size': '1rem',
-                            'color': colors['light-green'],
+                            'color': colours['light-green'],
                             'border': '0px transparent',
                             'textAlign': 'center'},
                         style_cell={
                             'backgroundColor': 'transparent',
                             'fontFamily': font_family,
                             'font-size': '0.85rem',
-                            'color': colors['white'],
+                            'color': colours['white'],
                             'border': '0px transparent',
                             'textAlign': 'center'},
                     )
@@ -396,9 +397,11 @@ session_overview = html.Div([
 ])
 
 ####################################################################################################
-# 002 - Page 2
+# 002 - Double Cell Selector
 ####################################################################################################
 
+# TODO: Data processing is not fast enough here. Look at possible speed improvements (e.g. better caching/moving to
+#  numpy). I have a feeling it's the storing of the dataframe in memory as a JSON.
 
 double_cell_selector = html.Div([
 
@@ -433,11 +436,16 @@ double_cell_selector = html.Div([
                 html.A('Select .mat Files')
             ]),
             style=upload_button_style,
+            # TODO: this should probably not be possible
             # Allow multiple files to be uploaded
             multiple=True
         ),
 
     ]),
+    html.Div(id="neurons-close-together"),
+
+    get_emptyrow(),
+
     html.Div([
         html.Div(id='drop-down-selector-1',
                  className='col-4'),
@@ -465,7 +473,7 @@ double_cell_selector = html.Div([
         ),
     ], className='row'
     ),
-
+    html.Div(id='check-locations'),
     dcc.Store(id='locations'),
     dcc.Store(id='metadata'),
 

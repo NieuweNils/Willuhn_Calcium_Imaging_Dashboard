@@ -86,3 +86,24 @@ def shortest_distances(mean_locations_df, small_distance=10):
     neurons_closest_together_df = distance_df[distance_df['distance'] < small_distance]
     return neurons_closest_together_df
 
+
+def a_neurons_neighbours(neurons_close_to_another_df):
+    size_based_neuron_clusters = []
+    cells_with_neighbours = set(neurons_close_to_another_df['neuron_1'])
+
+    for cell in cells_with_neighbours:
+        row = [cell]
+        neighbouring_cells = neurons_close_to_another_df[neurons_close_to_another_df['neuron_1'] == cell][
+            'neuron_2'].values
+        row.extend(neighbouring_cells)
+        size_based_neuron_clusters.append(row)
+
+    size_based_neuron_clusters_df = pd.DataFrame(size_based_neuron_clusters)
+
+    for column in size_based_neuron_clusters_df.columns:
+        if column == 0:
+            size_based_neuron_clusters_df.rename(columns={column: 'neuron'}, inplace=True)
+        else:
+            size_based_neuron_clusters_df.rename(columns={column: f'neighbour_{column}'}, inplace=True)
+
+    return size_based_neuron_clusters_df
