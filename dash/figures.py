@@ -2,50 +2,9 @@ from copy import copy
 
 import numpy as np
 import plotly.graph_objs as go
+
+from data_processing import get_pixel_df, get_cols_and_rows
 from formatting import layout as standard_layout
-
-from data_processing import retrieve_metadata, get_pixel_df, get_cols_and_rows
-
-
-def cell_outline_chart(locations_df, metadata, cell_number):
-    """
-    :param locations_df: a pandas dataframe with locations of each neuron, as stored in the the matlab variable "A" in the output of the CNMF_E algorithm
-    :param metadata: a dictionary with all "options" variables, retrieved from  the the matlab variable "options" in the output of the CNMF_E algorithm
-    :param cell_number: an integer defining the cell which outline is to be displayed
-    :return: a plotly.Figure object containing a plotly.graph_obj.Heatmap displaying the location of the cell of interest
-    """
-    d1 = metadata['d1']  # width of recording in #pixels (or was it height?)
-    d2 = metadata['d2']  # height of recording in #pixels (or was it width?)
-    pixel_df = get_pixel_df(locations_df)
-    cols, rows = get_cols_and_rows(pixel_df, metadata)
-    neuron_positions = np.stack((rows, cols))
-
-    white_background = np.zeros((d1, d2))
-    neuron_position = neuron_positions[:, cell_number, :]
-    neuron_position = neuron_position[~np.isnan(neuron_position)]
-    amount_of_pixels = int(neuron_position.shape[0] / 2)
-    neuron_position = np.reshape(neuron_position, (2, amount_of_pixels))
-
-    image_neuron = copy(white_background)
-    for j in range(amount_of_pixels):
-        row = int(neuron_position[0, j])
-        col = int(neuron_position[1, j])
-        image_neuron[row, col] = 1
-
-    heatmap = go.Heatmap(z=image_neuron,
-                         colorscale='gray')
-    layout = {'title':  {
-                        'text': f'contour of cell {cell_number}',
-                        'x': 0.5
-                        },
-              'font':   {
-                        'size': 18,
-                        },
-              }
-    figure = go.Figure(data=heatmap,
-                       layout=layout)
-
-    return figure
 
 
 def generatorify(tiff_data, skip_rate=1):
@@ -90,6 +49,69 @@ def play_and_pause_buttons(duration_play=50,
         ]
     }]
     return layout
+
+
+def frame_args(duration):
+    return {
+        "frame": {"duration": duration},
+        "mode": "immediate",
+        "fromcurrent": True,
+        "transition": {"duration": duration, "easing": "linear"},
+    }
+
+
+def slider_base():
+    sliders_dict = {
+        "active": 0,
+        "yanchor": "top",
+        "xanchor": "left",
+        "currentvalue": {
+            "font": {"size": 20},
+            "prefix": "Cell:",
+            "visible": True,
+            "xanchor": "right"
+        },
+        "transition": {"duration": 0},
+        "pad": {"b": 10, "t": 50},
+        "len": 1,
+        "x": 0.1,
+        "y": 0,
+        "steps": []
+    }
+
+    return sliders_dict
+
+
+def slider_steps(frame_names):
+    steps = [
+        {
+            "args": [[name], frame_args(0)],
+            "label": str(index),
+            "method": "animate",
+        }
+        for index, name in enumerate(frame_names)
+    ]
+
+    return steps
+
+
+def drop_down(frame_names):
+    drop_down_dict = {
+        'buttons' :
+        [
+            {"args": [[name], frame_args(0)],
+             'label': f'Cell {name}',
+             'method': "animate",} for name in frame_names
+        ],
+        'direction': 'down',
+        'pad': {'r': 10, 't':10},
+        'showactive': True,
+        'x': 0,
+        'xanchor': 'left',
+        'y': 1.5,
+        'yanchor': 'top'
+    }
+    return drop_down_dict
 
 
 def animated_line_chart(data, layout=standard_layout):
@@ -154,3 +176,69 @@ def animated_heatmap(data, layout=standard_layout, skip_rate=1):
     heatmap = go.Figure(figure_settings)
 
     return heatmap
+
+
+def transform_data_cell_outline_plot(locations_df, metadata):
+    d1 = metadata['d1']  # width of recording in #pixels (or was it height?)
+    d2 = metadata['d2']  # height of recording in #pixels (or was it width?)
+    pixel_df = get_pixel_df(locations_df)
+    cols, rows = get_cols_and_rows(pixel_df, metadata)
+    neuron_positions = np.stack((rows, cols))
+    number_of_cells = neuron_positions.shape[1]
+
+    return neuron_positions, number_of_cells, d1, d2
+
+
+def create_frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2):
+    white_background = np.zeros((d1, d2))
+    frames = []
+    frame_names = []
+    for cell_number in range(number_of_cells):
+        neuron_position = neuron_positions[:, cell_number, :]
+        neuron_position = neuron_position[~np.isnan(neuron_position)]
+        amount_of_pixels = int(neuron_position.shape[0] / 2)
+        neuron_position = np.reshape(neuron_position, (2, amount_of_pixels))
+        image_neuron = copy(white_background)
+        for j in range(amount_of_pixels):
+            row = int(neuron_position[0, j])
+            col = int(neuron_position[1, j])
+            image_neuron[row, col] = 1
+        frame_name = str(cell_number)
+        curr_frame = go.Frame(data=[go.Heatmap(z=image_neuron, colorscale='gray')],
+                              name=frame_name)  # IT'S VERY IMPORTANT TO NAME EACH FRAME THE SAME AS EACH SLIDER STEP
+                                                # & DROP DOWN!!
+        frames.append(curr_frame)
+        frame_names.append(frame_name)
+    return frames, frame_names
+
+
+# TODO: CHECK IF THE ANIMATION WORKS, ADD SLIDER, AND CREATE OVERLAYS OF MULTIPLE NEURONS
+def cell_outlines(locations_df, metadata):
+    """
+    :param locations_df: a pandas dataframe with locations of each neuron, as stored in the the matlab variable "A" in the output of the CNMF_E algorithm
+    :param metadata: a dictionary with all "options" variables, retrieved from  the the matlab variable "options" in the output of the CNMF_E algorithm
+    :return: a plotly.Figure object containing plotly.graph_obj.Heatmap objects displaying the location of the neurons
+    """
+    # create frames
+    neuron_positions, number_of_cells, d1, d2 = transform_data_cell_outline_plot(locations_df, metadata)
+    frames, frame_names = create_frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2)
+
+    # create slider & drop down
+    slider_dict = slider_base()
+    slider_dict["steps"] = slider_steps(frame_names)
+    drop_down_settings = drop_down(frame_names)
+
+    # Assemble figure
+    first_heatmap = frames[0]['data']
+    layout = {
+        'title': {'text': f'position of cell',
+                  'x': 0.5},
+        'font': {'size': 18},
+        "sliders": [slider_dict],
+        "updatemenus": [drop_down_settings]
+    }
+    figure = go.Figure(data=first_heatmap,
+                       layout=layout,
+                       frames=frames)
+
+    return figure

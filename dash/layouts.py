@@ -442,7 +442,15 @@ double_cell_selector = html.Div([
         ),
 
     ]),
-    html.Div(id="neurons-close-together"),
+    html.Div([
+        html.Div(
+            id="neurons-close-together-table",
+            className='col-4'),
+        html.Div(
+            id="neighbour-table",
+            className='col-4'),
+        ]
+    ),
 
     get_emptyrow(),
 
@@ -457,6 +465,7 @@ double_cell_selector = html.Div([
     ),
 
     get_emptyrow(),
+    html.Div(id="print-for-no-reason"),
 
     html.Div([
         html.Div([
@@ -475,6 +484,10 @@ double_cell_selector = html.Div([
     ),
     dcc.Store(id='locations'),
     dcc.Store(id='metadata'),
+    dcc.Store(id='neurons_closest_together'),
+    dcc.Store(id='neighbours'),
+    dcc.Store(id='dd-slider-sync'),
+    dcc.Store(id='dd-slider-sync-2'),
 
 ])
 ####################################################################################################
