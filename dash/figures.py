@@ -7,6 +7,8 @@ from data_processing import get_pixel_df, get_cols_and_rows
 from formatting import layout as standard_layout
 
 
+# HELPER FUNCTIONS
+
 def generatorify(tiff_data, skip_rate=1):
     """
     :param tiff_data: a 3D numpy array of dimensions [frames, height, width] that stores grayscale images
@@ -97,14 +99,14 @@ def slider_steps(frame_names):
 
 def drop_down(frame_names):
     drop_down_dict = {
-        'buttons' :
-        [
-            {"args": [[name], frame_args(0)],
-             'label': f'Cell {name}',
-             'method': "animate",} for name in frame_names
-        ],
+        'buttons':
+            [
+                {"args": [[name], frame_args(0)],
+                 'label': f'Cell {name}',
+                 'method': "animate", } for name in frame_names
+            ],
         'direction': 'down',
-        'pad': {'r': 10, 't':10},
+        'pad': {'r': 10, 't': 10},
         'showactive': True,
         'x': 0,
         'xanchor': 'left',
@@ -161,8 +163,8 @@ def animated_heatmap(data, layout=standard_layout, skip_rate=1):
         "layout": layout,
         "frames": []}
 
-    figure_settings["layout"]["xaxis"] = {"range": [0, data.shape[1]]}
-    figure_settings["layout"]["yaxis"] = {"range": [0, data.shape[2]]}
+    figure_settings["layout"]["xaxis"]["range"] = [0, data.shape[2]]
+    figure_settings["layout"]["yaxis"]["range"] = [0, data.shape[1]]
 
     frames = []
     for image in generatorify(data, skip_rate=skip_rate):
@@ -178,9 +180,12 @@ def animated_heatmap(data, layout=standard_layout, skip_rate=1):
     return heatmap
 
 
+# CELL LOCATIONS
+
+
 def transform_data_cell_outline_plot(locations_df, metadata):
-    d1 = metadata['d1']  # width of recording in #pixels (or was it height?)
-    d2 = metadata['d2']  # height of recording in #pixels (or was it width?)
+    d1 = metadata['d1']  # height of recording in #pixels
+    d2 = metadata['d2']  # width of recording in #pixels
     pixel_df = get_pixel_df(locations_df)
     cols, rows = get_cols_and_rows(pixel_df, metadata)
     neuron_positions = np.stack((rows, cols))
@@ -189,7 +194,7 @@ def transform_data_cell_outline_plot(locations_df, metadata):
     return neuron_positions, number_of_cells, d1, d2
 
 
-def create_frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2):
+def frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2):
     white_background = np.zeros((d1, d2))
     frames = []
     frame_names = []
@@ -205,39 +210,43 @@ def create_frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2):
             image_neuron[row, col] = 1
         frame_name = str(cell_number)
         curr_frame = go.Frame(data=[go.Heatmap(z=image_neuron, colorscale='gray')],
-                              name=frame_name)  # IT'S VERY IMPORTANT TO NAME EACH FRAME THE SAME AS EACH SLIDER STEP
-                                                # & DROP DOWN!!
+                              name=frame_name)  # VERY IMPORTANT: FRAME NAMES==SLIDER STEP NAMES==DROP DOWN NAMES
         frames.append(curr_frame)
         frame_names.append(frame_name)
+
     return frames, frame_names
 
 
-# TODO: CHECK IF THE ANIMATION WORKS, ADD SLIDER, AND CREATE OVERLAYS OF MULTIPLE NEURONS
-def cell_outlines(locations_df, metadata):
+def layout_cell_outline_plot(layout, frame_names, d1, d2):
+    slider_dict = slider_base()
+    slider_dict["steps"] = slider_steps(frame_names)
+    layout["sliders"] = [slider_dict]
+
+    drop_down_settings = drop_down(frame_names)
+    layout["updatemenus"] = [drop_down_settings]
+
+    layout["xaxis"]["range"] = [0, d2]
+    layout["yaxis"]["range"] = [0, d1]
+
+    return layout
+
+
+# TODO: CHANGE TO AN OVERLAY OF ALL NEURONS ASSOCIATED WITH THE ONE SELECTED
+def cell_outlines(locations_df, metadata, layout_base=standard_layout):
     """
     :param locations_df: a pandas dataframe with locations of each neuron, as stored in the the matlab variable "A" in the output of the CNMF_E algorithm
     :param metadata: a dictionary with all "options" variables, retrieved from  the the matlab variable "options" in the output of the CNMF_E algorithm
+    :param layout_base: a custom layout (either a dict or a plotly layout object). default is a standard layout, imported from the "formatting" library
     :return: a plotly.Figure object containing plotly.graph_obj.Heatmap objects displaying the location of the neurons
     """
     # create frames
     neuron_positions, number_of_cells, d1, d2 = transform_data_cell_outline_plot(locations_df, metadata)
-    frames, frame_names = create_frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2)
-
-    # create slider & drop down
-    slider_dict = slider_base()
-    slider_dict["steps"] = slider_steps(frame_names)
-    drop_down_settings = drop_down(frame_names)
-
+    frames, frame_names = frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2)
+    first_frame = frames[0]['data']
+    # create layout
+    layout = layout_cell_outline_plot(layout_base, frame_names, d1, d2)
     # Assemble figure
-    first_heatmap = frames[0]['data']
-    layout = {
-        'title': {'text': f'position of cell',
-                  'x': 0.5},
-        'font': {'size': 18},
-        "sliders": [slider_dict],
-        "updatemenus": [drop_down_settings]
-    }
-    figure = go.Figure(data=first_heatmap,
+    figure = go.Figure(data=first_frame,
                        layout=layout,
                        frames=frames)
 

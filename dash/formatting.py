@@ -4,7 +4,7 @@ import plotly.graph_objs as go
 colours = {
     'dark-blue-grey': 'rgb(62, 64, 76)',
     'medium-blue-grey': 'rgb(77, 79, 91)',
-    'superdark-green': 'rgb(41, 56, 55)',
+    'super-dark-green': 'rgb(41, 56, 55)',
     'dark-green': 'rgb(57, 81, 85)',
     'medium-green': 'rgb(93, 113, 120)',
     'light-green': 'rgb(186, 218, 212)',
@@ -23,8 +23,8 @@ graph_col_style = {
     'border-radius': '10px',
     'border-style': 'solid',
     'border-width': '1px',
-    'border-color': colours['superdark-green'],
-    'background-color': colours['superdark-green'],
+    'border-color': colours['super-dark-green'],
+    'background-color': colours['super-dark-green'],
     'box-shadow': '0px 0px 17px 0px rgba(186, 218, 212, .5)',
     'padding-top': '10px',
 }
@@ -120,19 +120,21 @@ legend = {
              }
 }  # Legend will be on the top right, above the graph, horizontally
 
-margins = {'l': 5, 'r': 5, 't': 45, 'b': 15}  # Set top margin to in case there is a legend
+margins = {'l': 5, 'r': 5, 't': 5, 'b': 5}
 
 layout = go.Layout(
-    font={'family': font_family},
+    font={'family': font_family,
+          'color': colours['white'],
+          },
     title=title,
-    title_x=0.5,  # Align chart title to center
-    paper_bgcolor=colours['superdark-green'],  # rgba(0,0,0,0)',
+    title_x=0.5,
+    paper_bgcolor=colours['super-dark-green'],
     plot_bgcolor=colours['white'],
     xaxis=x_axis,
     yaxis=y_axis,
-    height=270,
     legend=legend,
-    margin=margins
+    margin=margins,
+    autosize=True,
 )
 
 upload_button_style = {

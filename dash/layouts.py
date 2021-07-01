@@ -70,7 +70,7 @@ def get_header():
     ],
         className='row',
         style={'height': '4%',
-               'background-color': colours['superdark-green']}
+               'background-color': colours['super-dark-green']}
     )
 
     return header
@@ -428,68 +428,94 @@ double_cell_selector = html.Div([
 
     #####################
     # Row 5 : Charts
-    html.Div([
-        dcc.Upload(
-            id='upload-data',
-            children=html.Div([
-                'Drag and Drop or ',
-                html.A('Select .mat Files')
+    html.Div([  # External row
+
+        html.Div([
+        ],
+            className='col-1'),  # Blank 1 column
+
+        html.Div([  # External 10-column
+
+            html.Div([
+                dcc.Upload(
+                    id='upload-data',
+                    children=html.Div([
+                        'Drag and Drop or ',
+                        html.A('Select .mat Files')
+                    ]),
+                    style=upload_button_style,
+                    # TODO: this should probably not be possible
+                    # Allow multiple files to be uploaded
+                    multiple=True
+                ),
+
             ]),
-            style=upload_button_style,
-            # TODO: this should probably not be possible
-            # Allow multiple files to be uploaded
-            multiple=True
+
+            html.Div([  # start of graph field
+
+                html.Div([
+                    html.Div(id="neurons-close-together-table",
+                             className='col-4'),
+                    html.Div([
+                    ],
+                        className='col-1'),  # Blank 1 column
+                    html.Div(id="neighbour-table",
+                             className='col-4'),
+                ], className='row'
+                ),
+
+                get_emptyrow(),
+
+                # TODO: make these selection buttons
+                # html.Div([
+                #     html.Div(id='drop-down-selector-1',
+                #              className='col-4'),
+                #     html.Div(id='drop-down-selector-2',
+                #              className='col-4'),
+                #     html.Div(id='drop-down-selector-3',
+                #              className='col-4'),
+                # ], className='row'
+                # ),
+
+                get_emptyrow(),
+                # TODO: find out why this suddenly became super small & messed up after I added the external 10-column
+                html.Div([
+                    html.Div([
+                        dcc.Graph(id='cell-shape-plot-1'),
+                    ], className='col-4'
+                    ),
+                    html.Div([
+                        dcc.Graph(id='cell-shape-plot-2'),
+                    ], className='col-4'
+                    ),
+                    html.Div([
+                        dcc.Graph(id='cell-shape-plot-3'),
+                    ], className='col-4'
+                    ),
+                ], className='row'
+                ),
+                dcc.Store(id='locations'),
+                dcc.Store(id='metadata'),
+                dcc.Store(id='neurons_closest_together'),
+                dcc.Store(id='neighbours'),
+                dcc.Store(id='dd-slider-sync'),
+                dcc.Store(id='dd-slider-sync-2'),
+
+            ])
+
+        ],
+            className='col-10',
+            style=graph_col_style
         ),
+        html.Div([],
+                 className='col-1'),  # Blank 1 column
 
-    ]),
-    html.Div([
-        html.Div(
-            id="neurons-close-together-table",
-            className='col-4'),
-        html.Div(
-            id="neighbour-table",
-            className='col-4'),
-        ]
-    ),
-
-    get_emptyrow(),
-
-    html.Div([
-        html.Div(id='drop-down-selector-1',
-                 className='col-4'),
-        html.Div(id='drop-down-selector-2',
-                 className='col-4'),
-        html.Div(id='drop-down-selector-3',
-                 className='col-4'),
-    ], className='row'
-    ),
-
-    get_emptyrow(),
-    html.Div(id="print-for-no-reason"),
-
-    html.Div([
-        html.Div([
-                dcc.Graph(id='cell-shape-plot-1'),
-            ], className='col-4'
-        ),
-        html.Div([
-                dcc.Graph(id='cell-shape-plot-2'),
-            ], className='col-4'
-        ),
-        html.Div([
-                dcc.Graph(id='cell-shape-plot-3'),
-            ], className='col-4'
-        ),
-    ], className='row'
-    ),
-    dcc.Store(id='locations'),
-    dcc.Store(id='metadata'),
-    dcc.Store(id='neurons_closest_together'),
-    dcc.Store(id='neighbours'),
-    dcc.Store(id='dd-slider-sync'),
-    dcc.Store(id='dd-slider-sync-2'),
-
-])
+    ],
+        className='row',
+        style=graph_row_style
+    ),  # External row
+],
+)
 ####################################################################################################
 # 003 - Optional 3rd page
 ####################################################################################################
