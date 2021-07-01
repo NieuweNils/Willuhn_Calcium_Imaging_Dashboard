@@ -116,13 +116,15 @@ def drop_down(frame_names):
     return drop_down_dict
 
 
-def animated_line_chart(data, layout=standard_layout):
+def animated_line_chart(data, layout_base=standard_layout):
     """
     :param data: a 2d numpy array of dimensions [channel, timestamp] that stores fluorescence traces for each neuron
-    :param layout: settings to use in plotly.graph_objs.figure['layout']
+    :param layout_base: settings to use in plotly.graph_objs.figure['layout']
     :return: an animated linechart object (of
     type plotly.graph_objs.figure where keys ['data'] and ['frames'] store plotly.graph_objs.Scatter objects)
     """
+
+    layout = copy(layout_base)  # Copy by value instead of reference
     figure_settings = {
         "data": [],
         "layout": layout,
@@ -148,16 +150,17 @@ def animated_line_chart(data, layout=standard_layout):
     return go.Figure(figure_settings)
 
 
-def animated_heatmap(data, layout=standard_layout, skip_rate=1):
+def animated_heatmap(data, layout_base=standard_layout, skip_rate=1):
     """
     :param data: a 3D numpy array of dimensions [frames, height, width] that stores grayscale images
-    :param layout:
+    :param layout_base:
     settings to use in plotly.graph_objs.figure['layout']
     :param skip_rate: only every {this number} frames in the
     np.array are used for the animation (default: every frame)
     :return: an animated heatmap object (of type
     plotly.graph_objs.figure where keys ['data'] and ['frames'] store plotly.graph_objs.Heatmap objects)
     """
+    layout = copy(layout_base)  # Copy by value instead of reference
     figure_settings = {
         "data": [],
         "layout": layout,
@@ -239,6 +242,7 @@ def cell_outlines(locations_df, metadata, layout_base=standard_layout):
     :param layout_base: a custom layout (either a dict or a plotly layout object). default is a standard layout, imported from the "formatting" library
     :return: a plotly.Figure object containing plotly.graph_obj.Heatmap objects displaying the location of the neurons
     """
+    layout_base = copy(layout_base)  # Copy by value instead of reference
     # create frames
     neuron_positions, number_of_cells, d1, d2 = transform_data_cell_outline_plot(locations_df, metadata)
     frames, frame_names = frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2)
