@@ -4,7 +4,7 @@ import numpy as np
 import plotly.graph_objs as go
 
 from data_processing import get_pixel_df, get_cols_and_rows
-from formatting import layout as standard_layout
+from formatting import standard_layout
 
 
 # HELPER FUNCTIONS
@@ -76,8 +76,8 @@ def slider_base():
         "transition": {"duration": 0},
         "pad": {"b": 10, "t": 50},
         "len": 1,
-        "x": 0.1,
-        "y": 0,
+        "x": 0.2,
+        "y": 0.1,
         "steps": []
     }
 
@@ -105,13 +105,11 @@ def drop_down(frame_names):
                  'label': f'Cell {name}',
                  'method': "animate", } for name in frame_names
             ],
-        'direction': 'down',
-        'pad': {'r': 10, 't': 10},
+        'direction': 'up',
+        'pad': {'b': 0, 't': 50},
         'showactive': True,
-        'x': 0,
-        'xanchor': 'left',
-        'y': 1.5,
-        'yanchor': 'top'
+        'x': 0.1,
+        'y': 0,
     }
     return drop_down_dict
 

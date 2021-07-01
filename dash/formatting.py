@@ -122,7 +122,7 @@ legend = {
 
 margins = {'l': 5, 'r': 5, 't': 5, 'b': 5}
 
-layout = go.Layout(
+standard_layout = go.Layout(
     font={'family': font_family,
           'color': colours['white'],
           },
