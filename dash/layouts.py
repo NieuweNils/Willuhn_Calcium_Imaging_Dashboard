@@ -312,10 +312,11 @@ session_overview = html.Div([
                     className='col-4'),
 
                 # Chart Column
-                html.Div([
-                    dcc.Graph(
-                        id='session_overview-UNUSED')
-                ],
+                html.Div(
+                    [
+                        # dcc.Graph(
+                        #     id='session_overview-UNUSED')
+                    ],
                     className='col-4')
 
             ],
@@ -366,15 +367,15 @@ session_overview = html.Div([
 
                 # Chart Column
                 html.Div([
-                    dcc.Graph(
-                        id='session_overview-UNUSED')
+                    # dcc.Graph(
+                    #     id='session_overview-UNUSED')
                 ],
                     className='col-4'),
 
                 # Chart Column
                 html.Div([
-                    dcc.Graph(
-                        id='session_overview-UNUSED')
+                    # dcc.Graph(
+                    #     id='session_overview-UNUSED')
                 ],
                     className='col-4')
 
@@ -403,6 +404,7 @@ session_overview = html.Div([
 # TODO: Data processing is not fast enough here. Look at possible speed improvements (e.g. better caching/moving to
 #  numpy). I have a feeling it's the storing of the dataframe in memory as a JSON.
 
+####################################################################################################
 double_cell_selector = html.Div([
 
     #####################
@@ -488,18 +490,23 @@ double_cell_selector = html.Div([
                         dcc.Graph(id='cell-shape-plot-2'),
                     ], className='col-4'
                     ),
-                    html.Div([
-                        dcc.Graph(id='cell-shape-plot-3'),
-                    ], className='col-4'
+                    html.Div(
+                        # id='correlation-table',
+                        [
+                            dcc.Graph(id='correlation-plot'),
+                        ],
+                        className='col-4'
                     ),
                 ], className='row'
                 ),
                 dcc.Store(id='locations'),
+                dcc.Store(id='fluorescence_traces'),
+                dcc.Store(id='background_fluorescence'),
                 dcc.Store(id='metadata'),
                 dcc.Store(id='neurons_closest_together'),
                 dcc.Store(id='neighbours'),
-                dcc.Store(id='dd-slider-sync'),
-                dcc.Store(id='dd-slider-sync-2'),
+                # dcc.Store(id='dd-slider-sync'),
+                # dcc.Store(id='dd-slider-sync-2'),
 
             ])
 
@@ -516,7 +523,6 @@ double_cell_selector = html.Div([
     ),  # External row
 ],
 )
-####################################################################################################
 # 003 - Optional 3rd page
 ####################################################################################################
 

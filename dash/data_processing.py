@@ -107,3 +107,16 @@ def a_neurons_neighbours(neurons_close_to_another_df):
             size_based_neuron_clusters_df.rename(columns={column: f'neighbour_{column}'}, inplace=True)
 
     return size_based_neuron_clusters_df
+
+
+def correlating_neurons(fluorescence_traces):
+    correlation_matrix = np.corrcoef(fluorescence_traces)
+    correlation_matrix = np.absolute(correlation_matrix)
+
+    correlation_df = pd.DataFrame(correlation_matrix)
+    # Discard the lower left triangle as all correlation values will end up as doubles (includes the diagonal of 1.0's)
+    correlation_df = correlation_df.where(np.triu(np.ones(correlation_matrix.shape), k=1).astype(np.bool))
+
+    highly_correlating_neurons = correlation_df[correlation_df > 0.6]
+
+    return highly_correlating_neurons
