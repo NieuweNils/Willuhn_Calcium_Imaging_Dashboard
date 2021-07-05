@@ -220,6 +220,14 @@ def make_outline_image(amount_of_pixels, neuron_position, d1, d2, starting_image
     return image_neuron
 
 
+def gray_heatmap(image):
+    go.Figure(
+        data=go.Heatmap(
+            z=image,
+            colorscale='gray')
+        )
+
+
 def frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2):
     frames = []
     frame_names = []

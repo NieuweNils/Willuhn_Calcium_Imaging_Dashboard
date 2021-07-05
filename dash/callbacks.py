@@ -10,7 +10,7 @@ from scipy.io import loadmat
 
 from app import app
 from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours
-from figures import cell_outlines, cell_outlines_double_cells, correlation_plot
+from figures import cell_outlines, cell_outlines_double_cells, gray_heatmap
 from formatting import colours, font_family
 
 
@@ -195,18 +195,18 @@ def create_neighbour_table(neighbours):
     [
         Output('cell-shape-plot-1', 'figure'),
         Output('cell-shape-plot-2', 'figure'),
-        Output('correlation-plot', 'figure'),
+        Output('background-plot', 'figure'),
     ],
     [
         Input('locations', 'data'),
         Input('neighbours', 'data'),
-        Input('fluorescence_traces', 'data'),
+        Input('background_fluorescence', 'data'),
         Input('metadata', 'data'),
         # Input('cell-selector-drop-down-1', 'value'),  # TODO: change to State?
     ],
     prevent_initial_call=True
 )
-def update_cell_shape_plots(locations, neighbours, fluorescence_traces, metadata):
+def update_cell_shape_plots(locations, neighbours, background_fluorescence, metadata):
     print("update_cell_shape_plots called")
 
     start_time = time.time()
@@ -226,10 +226,10 @@ def update_cell_shape_plots(locations, neighbours, fluorescence_traces, metadata
     print(f"that figure took {duration}s to make")
 
     start_time = time.time()
-    correlation_figure = correlation_plot(fluorescence_traces)
+    background_plot = gray_heatmap(background_fluorescence)
     duration = time.time() - start_time
     print(f"that figure took {duration}s to make")
 
     return [cell_outline_figure,
             double_cell_figure,
-            correlation_figure]
+            background_plot]

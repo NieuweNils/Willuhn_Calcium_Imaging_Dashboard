@@ -493,7 +493,7 @@ double_cell_selector = html.Div([
                     html.Div(
                         # id='correlation-table',
                         [
-                            dcc.Graph(id='correlation-plot'),
+                            dcc.Graph(id='background-plot'),
                         ],
                         className='col-4'
                     ),
