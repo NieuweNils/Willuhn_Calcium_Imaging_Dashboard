@@ -216,7 +216,7 @@ def update_cell_shape_plots(locations, neighbours, background_fluorescence, meta
     print(f"the data took {duration}s to load into a dataframe")
 
     start_time = time.time()
-    cell_outline_figure = cell_outlines(locations_df, metadata)
+    cell_outline_figure = cell_outlines(locations_df, metadata, background=background_fluorescence)
     duration = time.time() - start_time
     print(f"that figure took {duration}s to make")
 

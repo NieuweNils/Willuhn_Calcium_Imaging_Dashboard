@@ -204,31 +204,30 @@ def find_pixels(neuron_positions, cell_number):
     return neuron_position, amount_of_pixels
 
 
-def make_outline_image(amount_of_pixels, neuron_position, d1, d2, starting_image=None, value_if_present=1.0):
+def make_outline_image(amount_of_pixels, neuron_position, d1, d2, starting_image=None, value_if_present=2.0):
     if starting_image is None:
-        white_background = np.zeros((d1, d2))
-        image_neuron = white_background
+        transparent_background = np.full([d1, d2], np.nan)
+        image_neuron = transparent_background
     else:
-        image_neuron = starting_image
+        image_neuron = np.array(starting_image)
 
     for j in range(amount_of_pixels):
         row = int(neuron_position[0, j])
         col = int(neuron_position[1, j])
-        if image_neuron[row, col] == 0:
-            image_neuron[row, col] = value_if_present
-
+        image_neuron[row, col] = value_if_present
     return image_neuron
 
 
-def gray_heatmap(image):
-    go.Figure(
-        data=go.Heatmap(
-            z=image,
-            colorscale='gray')
-        )
+def gray_heatmap(image, layout_base=standard_layout):
+    return go.Figure(
+            data=go.Heatmap(
+                z=image,
+                colorscale='gray'),
+            layout=layout_base,
+            )
 
 
-def frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2):
+def frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2, background):
     frames = []
     frame_names = []
     for cell_number in range(number_of_cells):
@@ -236,9 +235,20 @@ def frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2):
         image_neuron = make_outline_image(amount_of_pixels,
                                           neuron_position,
                                           d1,
-                                          d2)
+                                          d2,
+                                          starting_image=background)
         frame_name = str(cell_number)
-        curr_frame = go.Frame(data=[go.Heatmap(z=image_neuron, colorscale='gray')],
+        curr_frame = go.Frame(data=[go.Heatmap(z=image_neuron,
+                                               colorscale=[
+                                                   [0, 'rgb(0, 0, 0)'],  # black background
+                                                   [0.1, 'rgb(50, 50, 50)'],
+                                                   [0.2, 'rgb(100, 100, 100)'],
+                                                   [0.3, 'rgb(150, 150, 150)'],
+                                                   [0.4, 'rgb(200, 200, 200)'],
+                                                   [0.5, 'rgb(250, 250, 250)'],  # white background
+                                                   [1.0, 'rgb(255,255,0)'],  # yellow (for highlighted cell)
+                                               ],
+                                               )],
                               name=frame_name)  # VERY IMPORTANT: FRAME NAMES==SLIDER STEP NAMES==DROP DOWN NAMES
         frames.append(curr_frame)
         frame_names.append(frame_name)
@@ -260,13 +270,13 @@ def layout_cell_outline_plot(layout, frame_names, d1, d2):
     return layout
 
 
-# TODO: CHANGE TO AN OVERLAY OF ALL NEURONS ASSOCIATED WITH THE ONE SELECTED
-def cell_outlines(locations_df, metadata, layout_base=standard_layout):
+def cell_outlines(locations_df, metadata, background=None, layout_base=standard_layout):
     """
     :param locations_df: a pandas dataframe with locations of each neuron, as stored in the the matlab variable "A"
     in the output of the CNMF_E algorithm
     :param metadata: a dictionary with all "options" variables, retrieved from the the matlab variable "options" in the
      output of the CNMF_E algorithm
+    :param background:
     :param layout_base: a custom layout (    either a dict or a plotly layout object). default is a standard layout,
     imported from the "formatting" library
     :return: a plotly.Figure object containing plotly.graph_obj.Heatmap objects displaying the location of the neurons
@@ -274,7 +284,7 @@ def cell_outlines(locations_df, metadata, layout_base=standard_layout):
     layout_base = copy(layout_base)  # Copy by value instead of reference
     # create frames
     neuron_positions, number_of_cells, d1, d2 = transform_data_cell_outline_plot(locations_df, metadata)
-    frames, frame_names = frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2)
+    frames, frame_names = frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2, background)
     first_frame = frames[0]['data']
     # create layout
     layout = layout_cell_outline_plot(layout_base, frame_names, d1, d2)
@@ -311,7 +321,16 @@ def frames_double_cells_outline_plot(neuron_positions, neighbours_df, d1, d2):
                                                             starting_image=image_neuron,
                                                             value_if_present=0.7)
         frame_name = str(cell_number)
-        curr_frame = go.Frame(data=[go.Heatmap(z=image_including_neighbours, colorscale='gray')],
+        curr_frame = go.Frame(data=[go.Heatmap(z=image_including_neighbours,
+                                               colorscale=[
+                                                   [0, 'rgb(0, 0, 0)'],  # black background
+                                                   [0.1, 'rgb(50, 50, 50)'],
+                                                   [0.2, 'rgb(100, 100, 100)'],
+                                                   [0.3, 'rgb(150, 150, 150)'],
+                                                   [0.4, 'rgb(200, 200, 200)'],
+                                                   [0.5, 'rgb(250, 250, 250)'],  # white background
+                                                   [1.0, 'rgb(255,255,0)'],  # yellow (for highlighted cell)
+                                               ],)],
                               name=frame_name)  # VERY IMPORTANT: FRAME NAMES==SLIDER STEP NAMES==DROP DOWN NAMES
         frames.append(curr_frame)
         frame_names.append(frame_name)
