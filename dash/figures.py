@@ -209,7 +209,7 @@ def make_outline_image(amount_of_pixels, neuron_position, d1, d2, starting_image
         transparent_background = np.full([d1, d2], np.nan)
         image_neuron = transparent_background
     else:
-        image_neuron = np.array(starting_image)
+        image_neuron = np.array(starting_image)  # TODO: see if this step can be skipped by an overlay of heatmaps
 
     for j in range(amount_of_pixels):
         row = int(neuron_position[0, j])

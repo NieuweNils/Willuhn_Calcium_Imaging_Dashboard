@@ -87,17 +87,43 @@ def shortest_distances(mean_locations_df, small_distance=10):
     return neurons_closest_together_df
 
 
+def create_neighbour_dict(neurons_close_to_another_df):
+    neighbour_dict = {}
+    new_row = 0
+
+    # fill the dictionary as such: {key: value} -> {cell_number: row_number}
+    for (neuron1, neuron2, distance) in neurons_close_to_another_df.values:
+        if neuron1 not in neighbour_dict:
+            if neuron2 not in neighbour_dict:
+                # neither neurons are associated with a previous row, assign to new row
+                neighbour_dict[neuron1] = new_row
+                neighbour_dict[neuron2] = new_row
+                new_row += 1
+            else:
+                # neuron 2 is already in there, put neuron 1 in the same row
+                old_row_2 = neighbour_dict[neuron2]
+                neighbour_dict[neuron1] = old_row_2
+        else:
+            # neuron 1 is already in there
+            if neuron2 not in neighbour_dict:
+                # neuron 2 is not, assign to row of neuron 1
+                old_row_1 = neighbour_dict[neuron1]
+                neighbour_dict[neuron2] = old_row_1
+            # if none of the above is True: both are already in separate rows, nothing to see here.
+
+    return neighbour_dict
+
+
 def a_neurons_neighbours(neurons_close_to_another_df):
+    neighbour_dict = create_neighbour_dict(neurons_close_to_another_df)
+    rows = set(neighbour_dict.values())
+    # Create the table as a list of lists
     size_based_neuron_clusters = []
-    cells_with_neighbours = set(neurons_close_to_another_df['neuron_1'])
+    for row in rows:
+        cells = [cell_number for cell_number, row_number in neighbour_dict.items() if row_number == row]
+        size_based_neuron_clusters.append(cells)
 
-    for cell in cells_with_neighbours:
-        row = [cell]
-        neighbouring_cells = neurons_close_to_another_df[neurons_close_to_another_df['neuron_1'] == cell][
-            'neuron_2'].values
-        row.extend(neighbouring_cells)
-        size_based_neuron_clusters.append(row)
-
+    # Convert to a Dataframe with columns
     size_based_neuron_clusters_df = pd.DataFrame(size_based_neuron_clusters)
 
     for column in size_based_neuron_clusters_df.columns:
