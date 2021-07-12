@@ -138,7 +138,7 @@ standard_layout = go.Layout(
 )
 
 upload_button_style = {
-    'width': '15%',
+    'width': '80%',
     'height': '35px',
     'lineHeight': '30px',
     'borderWidth': '1px',

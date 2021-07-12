@@ -2,6 +2,8 @@ import base64
 import io
 import time
 
+import dash_core_components as dcc
+import dash_html_components as html
 import dash_table
 import numpy as np
 import pandas as pd
@@ -11,7 +13,7 @@ from scipy.io import loadmat
 from app import app
 from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours
 from figures import cell_outlines, cell_outlines_double_cells, gray_heatmap
-from formatting import colours, font_family
+from formatting import colours, font_family, upload_button_style
 
 
 # TODO: check if this is necessary
@@ -30,6 +32,41 @@ def play_video(n_clicks, playing):
         return not playing
 
     return playing
+
+
+def get_drop_down_list(neighbours_df):
+    drop_down_list = []
+    for index, row in neighbours_df.iterrows():
+        drop_down_list.append({'label': f'cell {int(row[0])}', 'value': int(row[0])})
+    return drop_down_list
+
+
+@app.callback(
+    Output("download-data", "children"),
+    [Input('locations', 'data'),
+     Input('neighbours', 'data')],
+    prevent_initial_call=True,
+)
+def update_download_button(locations, neighbours):
+    print("update_download_button called")
+    return html.Div(
+        [html.Button("Download data",
+                     id="download-button",
+                     style=upload_button_style),
+         dcc.Download(id='download-data'),
+         ],
+        className='col-4'
+    )
+
+
+@app.callback(
+    Output("download-data", "data"),
+    Input("download-button", "n_clicks"),
+    prevent_initial_call=True,
+)
+def download_data(n_clicks):
+    df = pd.DataFrame({"a": [1, 2, 3, 4], "b": [2, 1, 5, 6], "c": ["x", "x", "y", "y"]})
+    return dcc.send_data_frame(df.to_csv, "my_df.csv")
 
 
 def parse_data(contents, filename):
@@ -51,13 +88,6 @@ def parse_data(contents, filename):
     return locations, fluorescence_traces, background_fluorescence, options
 
 
-def get_drop_down_list(neighbours_df):
-    drop_down_list = []
-    for index, row in neighbours_df.iterrows():
-        drop_down_list.append({'label': f'cell {int(row[0])}', 'value': int(row[0])})
-    return drop_down_list
-
-
 @app.callback([Output('locations', 'data'),
                Output('fluorescence_traces', 'data'),
                Output('background_fluorescence', 'data'),
@@ -74,7 +104,7 @@ def load_data(list_of_contents, list_of_names):
     if list_of_contents is not None:
         print("parsing data")
         locations, fluorescence_traces, background_fluorescence, metadata = parse_data(list_of_contents[0],
-                                                                                          list_of_names[0])
+                                                                                       list_of_names[0])
         print("transforming the data")
         locations_df = pd.DataFrame(locations)
         mean_locations = get_mean_locations(locations_df, metadata)
@@ -164,31 +194,6 @@ def create_neighbour_table(neighbours):
                                  }
                                  )
             ]
-
-
-#
-# @app.callback([
-#     Output('drop-down-selector-1', 'children'),
-#     Output('drop-down-selector-2', 'children'),
-#     Output('drop-down-selector-3', 'children'),
-# ],
-#     [Input('neighbours', 'data')],
-#     prevent_initial_call=True,
-# )
-# def create_drop_downs(neighbours):
-#     print("create_drop_downs called ")
-#     start_time = time.time()
-#     neighbour_df = pd.read_json(neighbours)
-# 
-#     duration = time.time() - start_time
-#     print(f"the data part above took {duration}s")
-#     drop_down_list = get_drop_down_list(neighbour_df)
-#     drop_down_list_2 = get_drop_down_list(neighbour_df)
-#     drop_down_list_3 = get_drop_down_list(neighbour_df)
-#     return [dcc.Dropdown(id='cell-selector-drop-down-1', options=drop_down_list),
-#             dcc.Dropdown(id='cell-selector-drop-down-2', options=drop_down_list_2),
-#             dcc.Dropdown(id='cell-selector-drop-down-3', options=drop_down_list_3),
-#             ]
 
 
 @app.callback(

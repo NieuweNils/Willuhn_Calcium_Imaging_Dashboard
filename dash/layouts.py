@@ -439,19 +439,25 @@ double_cell_selector = html.Div([
         html.Div([  # External 10-column
 
             html.Div([
-                dcc.Upload(
-                    id='upload-data',
-                    children=html.Div([
-                        'Drag and Drop or ',
-                        html.A('Select .mat Files')
-                    ]),
-                    style=upload_button_style,
-                    # TODO: this should probably not be possible
-                    # Allow multiple files to be uploaded
-                    multiple=True
+                html.Div([
+                    dcc.Upload(
+                        id='upload-data',
+                        children=html.Div([
+                            'Drag and Drop or ',
+                            html.A('Select .mat Files')
+                        ]),
+                        style=upload_button_style,
+                        # TODO: this should probably not be possible
+                        # Allow multiple files to be uploaded
+                        multiple=True
+                    ),
+                ],
+                    className='col-4',
                 ),
-
-            ]),
+                html.Div(id='download-data'),
+            ],
+                className='row'
+            ),
 
             html.Div([  # start of graph field
 
