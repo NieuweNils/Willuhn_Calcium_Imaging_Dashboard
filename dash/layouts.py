@@ -465,8 +465,6 @@ double_cell_selector = html.Div([
             html.Div([  # start of graph field
 
                 html.Div([
-                    html.Div(id="neurons-close-together-table",
-                             className='col-4'),
                     html.Div([
                     ],
                         className='col-1'),  # Blank 1 column
@@ -485,6 +483,17 @@ double_cell_selector = html.Div([
                         dcc.Graph(id='cell-shape-plot-2'),
                     ], className='col-4'
                     ),
+                    html.Div([
+                        html.Div(id='drop-down-selector-1',
+                                 className='col-4'),
+                        html.Div(id='drop-down-selector-2',
+                                 className='col-4'),
+                        html.Div(id='drop-down-selector-3',
+                                 className='col-4'),
+                    ],
+                        id="actionable-buttons",
+                        className='col-4'
+                    )
                 ], className='row'
                 ),
                 dcc.Store(id='locations'),
