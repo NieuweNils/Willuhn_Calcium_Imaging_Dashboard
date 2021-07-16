@@ -55,7 +55,6 @@ def update_download_button(locations, neighbours):
                      style=upload_button_style),
          dcc.Download(id='download-data'),
          ],
-        className='col-4'
     )
 
 
