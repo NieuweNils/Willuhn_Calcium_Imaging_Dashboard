@@ -454,7 +454,8 @@ double_cell_selector = html.Div([
                 ],
                     className='col-4',
                 ),
-                html.Div(id='download-data'),
+                html.Div(id='download-data',
+                         className='col-4'),
             ],
                 className='row'
             ),
@@ -496,13 +497,6 @@ double_cell_selector = html.Div([
                         dcc.Graph(id='cell-shape-plot-2'),
                     ], className='col-4'
                     ),
-                    html.Div(
-                        # id='correlation-table',
-                        [
-                            dcc.Graph(id='background-plot'),
-                        ],
-                        className='col-4'
-                    ),
                 ], className='row'
                 ),
                 dcc.Store(id='locations'),
@@ -511,8 +505,6 @@ double_cell_selector = html.Div([
                 dcc.Store(id='metadata'),
                 dcc.Store(id='neurons_closest_together'),
                 dcc.Store(id='neighbours'),
-                # dcc.Store(id='dd-slider-sync'),
-                # dcc.Store(id='dd-slider-sync-2'),
 
             ])
 

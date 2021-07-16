@@ -200,14 +200,12 @@ def create_neighbour_table(neighbours):
     [
         Output('cell-shape-plot-1', 'figure'),
         Output('cell-shape-plot-2', 'figure'),
-        Output('background-plot', 'figure'),
     ],
     [
         Input('locations', 'data'),
         Input('neighbours', 'data'),
         Input('background_fluorescence', 'data'),
         Input('metadata', 'data'),
-        # Input('cell-selector-drop-down-1', 'value'),  # TODO: change to State?
     ],
     prevent_initial_call=True
 )
@@ -237,4 +235,4 @@ def update_cell_shape_plots(locations, neighbours, background_fluorescence, meta
 
     return [cell_outline_figure,
             double_cell_figure,
-            background_plot]
+            ]

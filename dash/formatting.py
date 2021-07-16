@@ -144,6 +144,7 @@ upload_button_style = {
     'borderWidth': '1px',
     'borderStyle': 'solid',
     'borderRadius': '5px',
+    'background-color': 'transparent',
     'textAlign': 'center',
     'margin': '10px',
     'color': colours['white'],
