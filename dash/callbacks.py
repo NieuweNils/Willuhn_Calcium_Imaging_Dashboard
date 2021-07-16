@@ -1,5 +1,6 @@
 import base64
 import io
+import os
 import time
 
 import dash_core_components as dcc
@@ -8,7 +9,8 @@ import dash_table
 import numpy as np
 import pandas as pd
 from dash.dependencies import Output, Input, State
-from scipy.io import loadmat
+from scipy.io import loadmat, savemat
+from tkinter import filedialog, Tk
 
 from app import app
 from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours
@@ -42,7 +44,7 @@ def get_drop_down_list(neighbours_df):
 
 
 @app.callback(
-    Output("download-data", "children"),
+    Output("download-data-placeholder", "children"),
     [Input('locations', 'data'),
      Input('neighbours', 'data')],
     prevent_initial_call=True,
@@ -60,12 +62,27 @@ def update_download_button(locations, neighbours):
 
 @app.callback(
     Output("download-data", "data"),
-    Input("download-button", "n_clicks"),
+    [Input("download-button", "n_clicks"),
+     Input("locations", "data"),
+     Input("fluorescence_traces", "data"),
+     Input("background_fluorescence", "data"),
+     Input("metadata", "data"),
+     Input("neurons_closest_together", "data"),
+     Input("neighbours", "data"),
+     ],
     prevent_initial_call=True,
 )
-def download_data(n_clicks):
-    df = pd.DataFrame({"a": [1, 2, 3, 4], "b": [2, 1, 5, 6], "c": ["x", "x", "y", "y"]})
-    return dcc.send_data_frame(df.to_csv, "my_df.csv")
+def download_data(n_clicks, locations, traces, background, metadata, neurons_closest_together, neighbours):  # , data):
+    processed_data = {
+        "locations": locations,
+        "traces": traces,
+        "background": background,
+        "metadata": metadata,
+        "neurons_closest_together": neurons_closest_together,
+        "neighbours": neighbours,
+    }
+    savemat("processed_data.mat", mdict=processed_data)
+    return dcc.send_file("processed_data.mat")
 
 
 def parse_data(contents, filename):

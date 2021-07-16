@@ -454,8 +454,10 @@ double_cell_selector = html.Div([
                 ],
                     className='col-4',
                 ),
-                html.Div(id='download-data',
+                html.Div(id='empty-column-placeholder',
                          className='col-4'),
+                html.Div(id='download-data-placeholder',
+                         className='col-4')
             ],
                 className='row'
             ),
@@ -474,20 +476,6 @@ double_cell_selector = html.Div([
                 ),
 
                 get_emptyrow(),
-
-                # TODO: make these selection buttons
-                # html.Div([
-                #     html.Div(id='drop-down-selector-1',
-                #              className='col-4'),
-                #     html.Div(id='drop-down-selector-2',
-                #              className='col-4'),
-                #     html.Div(id='drop-down-selector-3',
-                #              className='col-4'),
-                # ], className='row'
-                # ),
-
-                get_emptyrow(),
-                # TODO: find out why this suddenly became super small & messed up after I added the external 10-column
                 html.Div([
                     html.Div([
                         dcc.Graph(id='cell-shape-plot-1'),
@@ -521,6 +509,8 @@ double_cell_selector = html.Div([
     ),  # External row
 ],
 )
+
+####################################################################################################
 # 003 - Optional 3rd page
 ####################################################################################################
 
