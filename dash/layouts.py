@@ -403,8 +403,6 @@ session_overview = html.Div([
 
 # TODO: Data processing is not fast enough here. Look at possible speed improvements (e.g. better caching/moving to
 #  numpy). I have a feeling it's the storing of the dataframe in memory as a JSON.
-
-####################################################################################################
 double_cell_selector = html.Div([
 
     #####################
@@ -484,16 +482,15 @@ double_cell_selector = html.Div([
                     ], className='col-4'
                     ),
                     html.Div([
-                        html.Div(id='drop-down-selector-1',
-                                 className='col-4'),
-                        html.Div(id='drop-down-selector-2',
-                                 className='col-4'),
-                        html.Div(id='drop-down-selector-3',
-                                 className='col-4'),
+                        html.Div(id='drop-down-delete-placeholder'),
+                        html.Div(id='delete-button-placeholder'),
+                        html.Div(id='drop-down-merge-placeholder'),
+                        html.Div(id='merge-button-placeholder'),
+                        html.Div(id='output-drop-down-delete'),
                     ],
                         id="actionable-buttons",
                         className='col-4'
-                    )
+                    ),
                 ], className='row'
                 ),
                 dcc.Store(id='locations'),
@@ -518,6 +515,8 @@ double_cell_selector = html.Div([
     ),  # External row
 ],
 )
+
+####################################################################################################
 
 ####################################################################################################
 # 003 - Optional 3rd page

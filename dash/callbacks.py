@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 from dash.dependencies import Output, Input, State
 from scipy.io import loadmat, savemat
-from tkinter import filedialog, Tk
 
 from app import app
 from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours
@@ -135,44 +134,6 @@ def load_data(list_of_contents, list_of_names):
                 ]
     return [None, None, None, None, None, None]
 
-#
-# @app.callback([Output('neurons-close-together-table', 'children')],
-#               [Input('neurons_closest_together', 'data')],
-#               prevent_initial_call=True,
-#               )
-# def create_distance_table(neurons_closest_together):
-#     neurons_closest_together = pd.read_json(neurons_closest_together)
-#     table_columns = [{"name": i, "id": i} for i in neurons_closest_together.columns]
-#     table_data = neurons_closest_together.to_dict('records')
-#
-#     return [dash_table.DataTable(id='neurons-close-together-datatable',
-#                                  columns=table_columns,
-#                                  data=table_data,
-#                                  fixed_rows={'headers': True},
-#                                  style_header={
-#                                      'backgroundColor': 'transparent',
-#                                      'fontFamily': font_family,
-#                                      'font-size': '1rem',
-#                                      'color': colours['light-green'],
-#                                      'border': '0px transparent',
-#                                      'textAlign': 'center',
-#                                  },
-#                                  style_table={
-#                                      'height': '300px',
-#                                      'width': '600px',
-#                                      'marginLeft': '5%',
-#                                      'marginRight': 'auto',
-#                                      'overflowY': 'auto',
-#                                  },
-#                                  style_cell={
-#                                      'backgroundColor': colours['dark-green'],
-#                                      'color': colours['white'],
-#                                      'border': '0px transparent',
-#                                      'textAlign': 'center',
-#                                  }
-#                                  )
-#             ]
-
 
 @app.callback([Output('neighbour-table', 'children')],
               [Input('neighbours', 'data')],
@@ -213,11 +174,11 @@ def create_neighbour_table(neighbours):
 
 
 # TODO: change this to make use of the rows of neighbouring cells
-# TODO: add a merge and delete button here
 @app.callback([
-    Output('drop-down-selector-1', 'children'),
-    Output('drop-down-selector-2', 'children'),
-    Output('drop-down-selector-3', 'children'),
+    Output('drop-down-delete-placeholder', 'children'),
+    Output('drop-down-merge-placeholder', 'children'),
+    Output('delete-button-placeholder', 'children'),
+    Output('merge-button-placeholder', 'children'),
 ],
     [Input('neighbours', 'data')],
     prevent_initial_call=True,
@@ -229,13 +190,37 @@ def create_drop_downs(neighbours):
 
     duration = time.time() - start_time
     print(f"the data part above took {duration}s")
-    drop_down_list = get_drop_down_list(neighbour_df)
-    drop_down_list_2 = get_drop_down_list(neighbour_df)
-    drop_down_list_3 = get_drop_down_list(neighbour_df)
-    return [dcc.Dropdown(id='cell-selector-drop-down-1', options=drop_down_list),
-            dcc.Dropdown(id='cell-selector-drop-down-2', options=drop_down_list_2),
-            dcc.Dropdown(id='cell-selector-drop-down-3', options=drop_down_list_3),
+    drop_down_list_delete = get_drop_down_list(neighbour_df)
+    drop_down_list_merge = get_drop_down_list(neighbour_df)
+    return [dcc.Dropdown(id='drop-down-delete', options=drop_down_list_delete, multi=True,
+                         placeholder="Select cells to delete"),
+            dcc.Dropdown(id='drop-down-merge', options=drop_down_list_merge, multi=True,
+                         placeholder="Select cells to merge"),
+            html.Button("Delete selected cells", id="delete-button", style=upload_button_style),
+            html.Button("Merge selected cells", id="merge-button", style=upload_button_style),
             ]
+
+
+@app.callback(Output('output-drop-down-delete', 'data'),
+              [
+                  Input('delete-button', 'n_clicks'),
+                  Input('neighbours', 'modified_timestamp'),
+                ],
+              [
+                  State('drop-down-delete', 'value'),
+                  State('neighbours', 'data'),
+              ],
+              prevent_initial_call=True,
+              )
+def update_delete_list(clicked, modified_timestamp, cells_to_be_deleted, neighbours):
+    neighbours_df = pd.read_json(neighbours)
+    print(neighbours_df)
+    if cells_to_be_deleted:
+        [print(str(cell)) for cell in cells_to_be_deleted]
+        return "the last choice was: " + str(cells_to_be_deleted[-1])
+    else:
+        print("the list in now empty")
+        return "the list in now empty"
 
 
 @app.callback(
