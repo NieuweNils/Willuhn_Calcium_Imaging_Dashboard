@@ -146,3 +146,11 @@ def correlating_neurons(fluorescence_traces):
     highly_correlating_neurons = correlation_df[correlation_df > 0.6]
 
     return highly_correlating_neurons
+
+
+def delete_doubles(df, delete_list):
+    df = df[~df.isin(delete_list)]
+    # mask = df.isnan()
+    # # TODO: remake the dataframe after you've removed entries
+    # df = df.apply(lambda x: x.shift(-1), axis=1)
+    return df

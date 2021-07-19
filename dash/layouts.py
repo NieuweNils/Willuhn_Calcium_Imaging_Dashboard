@@ -499,7 +499,7 @@ double_cell_selector = html.Div([
                 dcc.Store(id='metadata'),
                 dcc.Store(id='neurons_closest_together'),
                 dcc.Store(id='neighbours'),
-
+                dcc.Store(id='neighbours_intermediate'),
             ])
 
         ],

@@ -8,11 +8,14 @@ import dash_html_components as html
 import dash_table
 import numpy as np
 import pandas as pd
+from dash import callback_context
 from dash.dependencies import Output, Input, State
+from dash.exceptions import PreventUpdate
 from scipy.io import loadmat, savemat
 
 from app import app
-from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours
+from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours, \
+    delete_doubles
 from figures import cell_outlines, cell_outlines_double_cells, gray_heatmap
 from formatting import colours, font_family, upload_button_style
 
@@ -45,10 +48,10 @@ def get_drop_down_list(neighbours_df):
 @app.callback(
     Output("download-data-placeholder", "children"),
     [Input('locations', 'data'),
-     Input('neighbours', 'data')],
+     Input('neighbours', 'modified_timestamp')],
     prevent_initial_call=True,
 )
-def update_download_button(locations, neighbours):
+def update_download_button(locations, timestamp_neighbours):
     print("update_download_button called")
     return html.Div(
         [html.Button("Download data",
@@ -67,11 +70,16 @@ def update_download_button(locations, neighbours):
      Input("background_fluorescence", "data"),
      Input("metadata", "data"),
      Input("neurons_closest_together", "data"),
-     Input("neighbours", "data"),
+     Input("neighbours", "modified_timestamp"),
      ],
+    State("neighbours", "data"),
     prevent_initial_call=True,
 )
-def download_data(n_clicks, locations, traces, background, metadata, neurons_closest_together, neighbours):
+def download_data(n_clicks, locations, traces, background, metadata, neurons_closest_together, timestamp, neighbours):
+    if n_clicks is None:
+        raise PreventUpdate
+    if timestamp is None:
+        raise PreventUpdate
     processed_data = {
         "locations": locations,
         "traces": traces,
@@ -108,7 +116,7 @@ def parse_data(contents, filename):
                Output('background_fluorescence', 'data'),
                Output('metadata', 'data'),
                Output('neurons_closest_together', 'data'),
-               Output('neighbours', 'data'),
+               Output('neighbours_intermediate', 'data'),
                ],
               [Input('upload-data', 'contents')],
               [State('upload-data', 'filename')],
@@ -135,16 +143,19 @@ def load_data(list_of_contents, list_of_names):
     return [None, None, None, None, None, None]
 
 
-@app.callback([Output('neighbour-table', 'children')],
-              [Input('neighbours', 'data')],
+@app.callback(Output('neighbour-table', 'children'),
+              Input('neighbours', 'modified_timestamp'),
+              State('neighbours', 'data'),
               prevent_initial_call=True,
               )
-def create_neighbour_table(neighbours):
+def create_neighbour_table(timestamp, neighbours):
+    if timestamp is None:
+        raise PreventUpdate
     neighbour_df = pd.read_json(neighbours)
     table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
     table_data = neighbour_df.to_dict('records')
 
-    return [dash_table.DataTable(id='neighbour-datatable',
+    return dash_table.DataTable(id='neighbour-datatable',
                                  columns=table_columns,
                                  data=table_data,
                                  fixed_rows={'headers': True},
@@ -170,7 +181,6 @@ def create_neighbour_table(neighbours):
                                      'textAlign': 'center',
                                  }
                                  )
-            ]
 
 
 # TODO: change this to make use of the rows of neighbouring cells
@@ -180,7 +190,7 @@ def create_neighbour_table(neighbours):
     Output('delete-button-placeholder', 'children'),
     Output('merge-button-placeholder', 'children'),
 ],
-    [Input('neighbours', 'data')],
+    Input('neighbours_intermediate', 'data'),
     prevent_initial_call=True,
 )
 def create_drop_downs(neighbours):
@@ -201,26 +211,32 @@ def create_drop_downs(neighbours):
             ]
 
 
-@app.callback(Output('output-drop-down-delete', 'data'),
+@app.callback(Output('neighbours', 'data'),
               [
+                  Input('neighbours_intermediate', 'data'),
                   Input('delete-button', 'n_clicks'),
-                  Input('neighbours', 'modified_timestamp'),
-                ],
+               ],
               [
-                  State('drop-down-delete', 'value'),
-                  State('neighbours', 'data'),
-              ],
-              prevent_initial_call=True,
+              State('drop-down-delete', 'value'),
+              State('neighbours', 'data')],
               )
-def update_delete_list(clicked, modified_timestamp, cells_to_be_deleted, neighbours):
-    neighbours_df = pd.read_json(neighbours)
-    print(neighbours_df)
+def update_neighbours(uploaded_data, n_clicks,  cells_to_be_deleted, cached_data):
+    print("update_neighbours called")
+    # if there is no data in the "neighbours" Store, use the uploaded data
+    if cached_data is None:
+        if uploaded_data is not None:
+            return uploaded_data
+    # there is already data in cache, and no one clicked a button:
+    if n_clicks is None:
+        raise PreventUpdate
+    neighbours_df = pd.read_json(cached_data)
+    # delete action
     if cells_to_be_deleted:
-        [print(str(cell)) for cell in cells_to_be_deleted]
-        return "the last choice was: " + str(cells_to_be_deleted[-1])
-    else:
-        print("the list in now empty")
-        return "the list in now empty"
+        print(neighbours_df)
+        neighbours_df = delete_doubles(df=neighbours_df, delete_list=cells_to_be_deleted)
+        print(neighbours_df)
+        return neighbours_df.to_json()
+    raise PreventUpdate
 
 
 @app.callback(
@@ -230,14 +246,17 @@ def update_delete_list(clicked, modified_timestamp, cells_to_be_deleted, neighbo
     ],
     [
         Input('locations', 'data'),
-        Input('neighbours', 'data'),
+        Input('neighbours', 'modified_timestamp'),
         Input('background_fluorescence', 'data'),
         Input('metadata', 'data'),
     ],
+    State('neighbours', 'data'),
     prevent_initial_call=True
 )
-def update_cell_shape_plots(locations, neighbours, background_fluorescence, metadata):
+def update_cell_shape_plots(locations, timestamp, background_fluorescence, metadata, neighbours):
     print("update_cell_shape_plots called")
+    if timestamp is None:
+        raise PreventUpdate
 
     start_time = time.time()
     locations_df = pd.DataFrame(locations)
