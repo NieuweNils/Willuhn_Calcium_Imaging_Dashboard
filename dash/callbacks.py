@@ -15,7 +15,7 @@ from scipy.io import loadmat, savemat
 
 from app import app
 from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours, \
-    delete_doubles
+    delete_locations, delete_traces, delete_neighbours
 from figures import cell_outlines, cell_outlines_double_cells, gray_heatmap
 from formatting import colours, font_family, upload_button_style
 
@@ -111,19 +111,19 @@ def parse_data(contents, filename):
     return locations, fluorescence_traces, background_fluorescence, options
 
 
-@app.callback([Output('locations', 'data'),
-               Output('fluorescence_traces', 'data'),
+@app.callback([Output('locations_intermediate', 'data'),
+               Output('fluorescence_traces_intermediate', 'data'),
                Output('background_fluorescence', 'data'),
                Output('metadata', 'data'),
-               Output('neurons_closest_together', 'data'),
+               Output('neurons_closest_together_intermediate', 'data'),
                Output('neighbours_intermediate', 'data'),
                ],
               [Input('upload-data', 'contents')],
               [State('upload-data', 'filename')],
               prevent_initial_call=True,
               )
-def load_data(list_of_contents, list_of_names):
-    print("load_data called ")
+def upload_data(list_of_contents, list_of_names):
+    print("upload_data called ")
     if list_of_contents is not None:
         print("parsing data")
         locations, fluorescence_traces, background_fluorescence, metadata = parse_data(list_of_contents[0],
@@ -211,6 +211,58 @@ def create_drop_downs(neighbours):
             ]
 
 
+@app.callback(Output('locations', 'data'),
+              [
+                  Input('locations_intermediate', 'data'),
+                  Input('delete-button', 'n_clicks'),
+               ],
+              [
+              State('drop-down-delete', 'value'),
+              State('locations', 'data')],
+              )
+def update_locations(uploaded_data, n_clicks,  cells_to_be_deleted, cached_data):
+    print("update_locations called")
+    # if there is no data in the "locations" Store, use the uploaded data
+    if cached_data is None:
+        if uploaded_data is not None:
+            return uploaded_data
+    # there is already data in cache, and no one clicked a button:
+    if n_clicks is None:
+        raise PreventUpdate
+    location_df = pd.read_json(cached_data)
+    # delete the cells
+    if cells_to_be_deleted:
+        location_df = delete_locations(df=location_df, delete_list=cells_to_be_deleted)
+        return location_df.to_json()
+    raise PreventUpdate
+
+
+@app.callback(Output('fluorescence_traces', 'data'),
+              [
+                  Input('fluorescence_traces_intermediate', 'data'),
+                  Input('delete-button', 'n_clicks'),
+               ],
+              [
+              State('drop-down-delete', 'value'),
+              State('fluorescence_traces', 'data')],
+              )
+def update_fluorescence_traces(uploaded_data, n_clicks,  cells_to_be_deleted, cached_data):
+    print("update_fluorescence_traces called")
+    # if there is no data in the "fluorescence traces" Store, use the uploaded data
+    if cached_data is None:
+        if uploaded_data is not None:
+            return uploaded_data
+    # there is already data in cache, and no one clicked a button:
+    if n_clicks is None:
+        raise PreventUpdate
+    traces_df = pd.read_json(cached_data)
+    # delete the cells
+    if cells_to_be_deleted:
+        traces_df = delete_traces(df=traces_df, delete_list=cells_to_be_deleted)
+        return traces_df.to_json()
+    raise PreventUpdate
+
+
 @app.callback(Output('neighbours', 'data'),
               [
                   Input('neighbours_intermediate', 'data'),
@@ -230,11 +282,9 @@ def update_neighbours(uploaded_data, n_clicks,  cells_to_be_deleted, cached_data
     if n_clicks is None:
         raise PreventUpdate
     neighbours_df = pd.read_json(cached_data)
-    # delete action
+    # delete the cells
     if cells_to_be_deleted:
-        print(neighbours_df)
-        neighbours_df = delete_doubles(df=neighbours_df, delete_list=cells_to_be_deleted)
-        print(neighbours_df)
+        neighbours_df = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_deleted)
         return neighbours_df.to_json()
     raise PreventUpdate
 
@@ -271,11 +321,6 @@ def update_cell_shape_plots(locations, timestamp, background_fluorescence, metad
 
     start_time = time.time()
     double_cell_figure = cell_outlines_double_cells(locations_df, neighbours_df, metadata)
-    duration = time.time() - start_time
-    print(f"that figure took {duration}s to make")
-
-    start_time = time.time()
-    background_plot = gray_heatmap(background_fluorescence)
     duration = time.time() - start_time
     print(f"that figure took {duration}s to make")
 

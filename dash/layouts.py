@@ -494,10 +494,13 @@ double_cell_selector = html.Div([
                 ], className='row'
                 ),
                 dcc.Store(id='locations'),
+                dcc.Store(id='locations_intermediate'),
                 dcc.Store(id='fluorescence_traces'),
+                dcc.Store(id='fluorescence_traces_intermediate'),
                 dcc.Store(id='background_fluorescence'),
                 dcc.Store(id='metadata'),
                 dcc.Store(id='neurons_closest_together'),
+                dcc.Store(id='neurons_closest_together_intermediate'),
                 dcc.Store(id='neighbours'),
                 dcc.Store(id='neighbours_intermediate'),
             ])

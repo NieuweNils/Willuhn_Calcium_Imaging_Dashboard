@@ -148,7 +148,17 @@ def correlating_neurons(fluorescence_traces):
     return highly_correlating_neurons
 
 
-def delete_doubles(df, delete_list):
+def delete_locations(df, delete_list):
+    # df = df[~df.isin(delete_list)]
+    return df
+
+
+def delete_traces(df, delete_list):
+    # df = df[~df.isin(delete_list)]
+    return df
+
+
+def delete_neighbours(df, delete_list):
     df = df[~df.isin(delete_list)]
     # mask = df.isnan()
     # # TODO: remake the dataframe after you've removed entries
