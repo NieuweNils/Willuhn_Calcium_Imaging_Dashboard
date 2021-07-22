@@ -160,7 +160,8 @@ def delete_traces(df, delete_list):
 
 def delete_neighbours(df, delete_list):
     df = df[~df.isin(delete_list)]
-    # mask = df.isnan()
+
+    # mask = df.isna()
     # # TODO: remake the dataframe after you've removed entries
-    # df = df.apply(lambda x: x.shift(-1), axis=1)
+    df = df.apply(lambda x: x.shift(-1, axis=1) if np.isnan(x[0]) else x)
     return df

@@ -133,12 +133,13 @@ def upload_data(list_of_contents, list_of_names):
         mean_locations = get_mean_locations(locations_df, metadata)
         neurons_closest_together = shortest_distances(mean_locations)
         neighbour_df = a_neurons_neighbours(neurons_closest_together)
-        return [locations,
+        #TODO: Dash loses the names when storing as record arrays anyway (don't ask me why...)
+        return [locations_df.to_records(index=False),
                 fluorescence_traces,
                 background_fluorescence,
                 metadata,
-                neurons_closest_together.to_json(),
-                neighbour_df.to_json(),
+                neurons_closest_together.to_records(index=False),
+                neighbour_df.to_records(index=False),
                 ]
     return [None, None, None, None, None, None]
 
@@ -151,7 +152,8 @@ def upload_data(list_of_contents, list_of_names):
 def create_neighbour_table(timestamp, neighbours):
     if timestamp is None:
         raise PreventUpdate
-    neighbour_df = pd.read_json(neighbours)
+    neighbour_df = pd.DataFrame.from_records(neighbours)
+    print(neighbour_df)
     table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
     table_data = neighbour_df.to_dict('records')
 
@@ -190,13 +192,13 @@ def create_neighbour_table(timestamp, neighbours):
     Output('delete-button-placeholder', 'children'),
     Output('merge-button-placeholder', 'children'),
 ],
-    Input('neighbours_intermediate', 'data'),
+    Input('neighbours', 'data'),
     prevent_initial_call=True,
 )
 def create_drop_downs(neighbours):
     print("create_drop_downs called ")
     start_time = time.time()
-    neighbour_df = pd.read_json(neighbours)
+    neighbour_df = pd.DataFrame.from_records(neighbours)
 
     duration = time.time() - start_time
     print(f"the data part above took {duration}s")
@@ -229,11 +231,11 @@ def update_locations(uploaded_data, n_clicks,  cells_to_be_deleted, cached_data)
     # there is already data in cache, and no one clicked a button:
     if n_clicks is None:
         raise PreventUpdate
-    location_df = pd.read_json(cached_data)
+    location_df = pd.DataFrame.from_records(cached_data)
     # delete the cells
     if cells_to_be_deleted:
         location_df = delete_locations(df=location_df, delete_list=cells_to_be_deleted)
-        return location_df.to_json()
+        return location_df.to_records(index=False)
     raise PreventUpdate
 
 
@@ -255,11 +257,11 @@ def update_fluorescence_traces(uploaded_data, n_clicks,  cells_to_be_deleted, ca
     # there is already data in cache, and no one clicked a button:
     if n_clicks is None:
         raise PreventUpdate
-    traces_df = pd.read_json(cached_data)
+    traces_df = pd.DataFrame.from_records(cached_data)
     # delete the cells
     if cells_to_be_deleted:
         traces_df = delete_traces(df=traces_df, delete_list=cells_to_be_deleted)
-        return traces_df.to_json()
+        return traces_df.to_records(index=False)
     raise PreventUpdate
 
 
@@ -281,11 +283,11 @@ def update_neighbours(uploaded_data, n_clicks,  cells_to_be_deleted, cached_data
     # there is already data in cache, and no one clicked a button:
     if n_clicks is None:
         raise PreventUpdate
-    neighbours_df = pd.read_json(cached_data)
+    neighbours_df = pd.DataFrame.from_records(cached_data)
     # delete the cells
     if cells_to_be_deleted:
         neighbours_df = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_deleted)
-        return neighbours_df.to_json()
+        return neighbours_df.to_records(index=False)
     raise PreventUpdate
 
 
@@ -309,8 +311,8 @@ def update_cell_shape_plots(locations, timestamp, background_fluorescence, metad
         raise PreventUpdate
 
     start_time = time.time()
-    locations_df = pd.DataFrame(locations)
-    neighbours_df = pd.read_json(neighbours)
+    locations_df = pd.DataFrame.from_records(locations)
+    neighbours_df = pd.DataFrame.from_records(neighbours)
     duration = time.time() - start_time
     print(f"the data took {duration}s to load into a dataframe")
 
