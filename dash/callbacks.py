@@ -40,8 +40,10 @@ def play_video(n_clicks, playing):
 
 def get_drop_down_list(neighbours_df):
     drop_down_list = []
-    for index, row in neighbours_df.iterrows():
-        drop_down_list.append({'label': f'cell {int(row[0])}', 'value': int(row[0])})
+    for _, row in neighbours_df.iterrows():
+        for i in range(len(row)):
+            if not np.isnan(row[i]):
+                drop_down_list.append({'label': f'cell {int(row[i])}', 'value': int(row[i])})
     return drop_down_list
 
 
