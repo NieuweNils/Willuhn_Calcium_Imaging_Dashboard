@@ -42,7 +42,7 @@ def get_drop_down_list(neighbours_df):
     drop_down_list = []
     for _, row in neighbours_df.iterrows():
         for i in range(len(row)):
-            if not np.isnan(row[i]):
+            if not (row[i] is None or np.isnan(row[i])):  # NB: stupid dash changes stuff to None
                 drop_down_list.append({'label': f'cell {int(row[i])}', 'value': int(row[i])})
     return drop_down_list
 
@@ -159,31 +159,31 @@ def create_neighbour_table(timestamp, neighbours):
     table_data = neighbour_df.to_dict('records')
 
     return dash_table.DataTable(id='neighbour-datatable',
-                                 columns=table_columns,
-                                 data=table_data,
-                                 fixed_rows={'headers': True},
-                                 style_header={
-                                     'backgroundColor': 'transparent',
-                                     'fontFamily': font_family,
-                                     'font-size': '1rem',
-                                     'color': colours['light-green'],
-                                     'border': '0px transparent',
-                                     'textAlign': 'center',
-                                 },
-                                 style_table={
-                                     'height': '300px',
-                                     'width': '600px',
-                                     'marginLeft': '5%',
-                                     'marginRight': 'auto',
-                                     'overflowY': 'auto',
-                                 },
-                                 style_cell={
-                                     'backgroundColor': colours['dark-green'],
-                                     'color': colours['white'],
-                                     'border': '0px transparent',
-                                     'textAlign': 'center',
-                                 }
-                                 )
+                                columns=table_columns,
+                                data=table_data,
+                                fixed_rows={'headers': True},
+                                style_header={
+                                    'backgroundColor': 'transparent',
+                                    'fontFamily': font_family,
+                                    'font-size': '1rem',
+                                    'color': colours['light-green'],
+                                    'border': '0px transparent',
+                                    'textAlign': 'center',
+                                },
+                                style_table={
+                                    'height': '300px',
+                                    'width': '600px',
+                                    'marginLeft': '5%',
+                                    'marginRight': 'auto',
+                                    'overflowY': 'auto',
+                                },
+                                style_cell={
+                                    'backgroundColor': colours['dark-green'],
+                                    'color': colours['white'],
+                                    'border': '0px transparent',
+                                    'textAlign': 'center',
+                                }
+                                )
 
 
 # TODO: change this to make use of the rows of neighbouring cells
@@ -193,10 +193,17 @@ def create_neighbour_table(timestamp, neighbours):
     Output('delete-button-placeholder', 'children'),
     Output('merge-button-placeholder', 'children'),
 ],
-    Input('neighbours_intermediate', 'data'),
+    [Input('neighbours_intermediate', 'data'),
+     Input('neighbours', 'modified_timestamp')],
+    State('neighbours', 'data'),
     prevent_initial_call=True,
 )
-def create_drop_downs(neighbours):
+def create_drop_downs(uploaded_data, timestamp, cached_data):
+    if cached_data is None:
+        if uploaded_data is not None:
+            neighbours = uploaded_data
+    else:
+        neighbours = cached_data
     print("create_drop_downs called ")
     start_time = time.time()
     neighbour_df = neighbour_df_from_array(neighbours)
@@ -218,12 +225,12 @@ def create_drop_downs(neighbours):
               [
                   Input('locations_intermediate', 'data'),
                   Input('delete-button', 'n_clicks'),
-               ],
+              ],
               [
-              State('drop-down-delete', 'value'),
-              State('locations', 'data')],
+                  State('drop-down-delete', 'value'),
+                  State('locations', 'data')],
               )
-def update_locations(uploaded_data, n_clicks,  cells_to_be_deleted, cached_data):
+def update_locations(uploaded_data, n_clicks, cells_to_be_deleted, cached_data):
     print("update_locations called")
     # if there is no data in the "locations" Store, use the uploaded data
     if cached_data is None:
@@ -232,6 +239,7 @@ def update_locations(uploaded_data, n_clicks,  cells_to_be_deleted, cached_data)
     # there is already data in cache, and no one clicked a button:
     if n_clicks is None:
         raise PreventUpdate
+
     location_df = pd.DataFrame.from_records(cached_data)
     # delete the cells
     if cells_to_be_deleted:
@@ -244,12 +252,12 @@ def update_locations(uploaded_data, n_clicks,  cells_to_be_deleted, cached_data)
               [
                   Input('fluorescence_traces_intermediate', 'data'),
                   Input('delete-button', 'n_clicks'),
-               ],
+              ],
               [
-              State('drop-down-delete', 'value'),
-              State('fluorescence_traces', 'data')],
+                  State('drop-down-delete', 'value'),
+                  State('fluorescence_traces', 'data')],
               )
-def update_fluorescence_traces(uploaded_data, n_clicks,  cells_to_be_deleted, cached_data):
+def update_fluorescence_traces(uploaded_data, n_clicks, cells_to_be_deleted, cached_data):
     print("update_fluorescence_traces called")
     # if there is no data in the "fluorescence traces" Store, use the uploaded data
     if cached_data is None:
@@ -258,6 +266,7 @@ def update_fluorescence_traces(uploaded_data, n_clicks,  cells_to_be_deleted, ca
     # there is already data in cache, and no one clicked a button:
     if n_clicks is None:
         raise PreventUpdate
+
     traces_df = pd.DataFrame.from_records(cached_data)
     # delete the cells
     if cells_to_be_deleted:
@@ -270,12 +279,12 @@ def update_fluorescence_traces(uploaded_data, n_clicks,  cells_to_be_deleted, ca
               [
                   Input('neighbours_intermediate', 'data'),
                   Input('delete-button', 'n_clicks'),
-               ],
+              ],
               [
-              State('drop-down-delete', 'value'),
-              State('neighbours', 'data')],
+                  State('drop-down-delete', 'value'),
+                  State('neighbours', 'data')],
               )
-def update_neighbours(uploaded_data, n_clicks,  cells_to_be_deleted, cached_data):
+def update_neighbours(uploaded_data, n_clicks, cells_to_be_deleted, cached_data):
     print("update_neighbours called")
     # if there is no data in the "neighbours" Store, use the uploaded data
     if cached_data is None:
@@ -284,6 +293,7 @@ def update_neighbours(uploaded_data, n_clicks,  cells_to_be_deleted, cached_data
     # there is already data in cache, and no one clicked a button:
     if n_clicks is None:
         raise PreventUpdate
+
     neighbours_df = neighbour_df_from_array(cached_data)
     # delete the cells
     if cells_to_be_deleted:

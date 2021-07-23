@@ -164,5 +164,20 @@ def delete_neighbours(df, delete_list):
     # take out the cells in the delete_list
     df = df[~df.isin(delete_list)]
     # shift all the values to the left that were next to those values
-    df = df.apply(lambda x: (x.shift(-1) if np.isnan(x[0]) else x), axis=1)
+    df = df.apply(lambda row: shift_away_nans(row), axis=1)
     return df
+
+
+def shift_away_nans(row):
+    passed_nan = False
+    passed_value = False
+    for i in range(len(row)-1, -1, -1):  # NB: looping from the end of the array to the beginning (stop after 0 (# -1))
+        if row[i] is None or np.isnan(row[i]):  # index is NaN, might shift this # NB: stupid dash changes stuff to None
+            if passed_value:
+                row = row[:i].append(row[i:].shift(-1, fill_value=np.nan))
+            if not passed_nan:
+                passed_nan = True
+        else:  # index contains a value, not shifting this
+            if not passed_value:
+                passed_value = True
+    return row
