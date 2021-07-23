@@ -38,6 +38,7 @@ def play_video(n_clicks, playing):
     return playing
 
 
+# TODO: if I store the index of the cell in the neighbour_df, it'll be easier to merge & delete entries in the dashboard
 def get_drop_down_list(neighbours_df):
     drop_down_list = []
     for _, row in neighbours_df.iterrows():
@@ -155,7 +156,6 @@ def create_neighbour_table(timestamp, neighbours):
     if timestamp is None:
         raise PreventUpdate
     neighbour_df = neighbour_df_from_array(neighbours)
-    print(neighbour_df)
     table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
     table_data = neighbour_df.to_dict('records')
 

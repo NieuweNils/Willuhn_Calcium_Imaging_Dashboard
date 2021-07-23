@@ -151,22 +151,22 @@ def neighbour_df_from_array(neighbours):
 
 
 def delete_locations(df, delete_list):
-    # df = df[~df.isin(delete_list)]
+    df = df.drop(delete_list, axis=1)  # pixel locations are stored column based (for a reason I don't remember)
     return df
 
 
 def delete_traces(df, delete_list):
-    # df = df[~df.isin(delete_list)]
+    df = df.drop(delete_list)  # traces are stored row based
     return df
 
 
 def delete_neighbours(df, delete_list):
     # take out the cells in the delete_list
     df = df[~df.isin(delete_list)]
-    # shift all the values to the left that were next to those values
-    df = df.apply(lambda row: shift_away_nans(row), axis=1)
     # drop all rows that are completely empty
     df = df.dropna(how='all')
+    # shift all the values to the left that were next to NaN values
+    df = df.apply(lambda row: shift_away_nans(row), axis=1)
     return df
 
 
