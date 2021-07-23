@@ -165,6 +165,8 @@ def delete_neighbours(df, delete_list):
     df = df[~df.isin(delete_list)]
     # shift all the values to the left that were next to those values
     df = df.apply(lambda row: shift_away_nans(row), axis=1)
+    # drop all rows that are completely empty
+    df = df.dropna(how='all')
     return df
 
 
