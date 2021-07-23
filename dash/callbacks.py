@@ -15,8 +15,8 @@ from scipy.io import loadmat, savemat
 
 from app import app
 from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours, \
-    delete_locations, delete_traces, delete_neighbours
-from figures import cell_outlines, cell_outlines_double_cells, gray_heatmap
+    delete_locations, delete_traces, delete_neighbours, neighbour_df_from_array
+from figures import cell_outlines, cell_outlines_double_cells
 from formatting import colours, font_family, upload_button_style
 
 
@@ -115,7 +115,7 @@ def parse_data(contents, filename):
                Output('fluorescence_traces_intermediate', 'data'),
                Output('background_fluorescence', 'data'),
                Output('metadata', 'data'),
-               Output('neurons_closest_together_intermediate', 'data'),
+               Output('neurons_closest_together_intermediate', 'data'),  # TODO: Check if this still has to be cached
                Output('neighbours_intermediate', 'data'),
                ],
               [Input('upload-data', 'contents')],
@@ -133,7 +133,6 @@ def upload_data(list_of_contents, list_of_names):
         mean_locations = get_mean_locations(locations_df, metadata)
         neurons_closest_together = shortest_distances(mean_locations)
         neighbour_df = a_neurons_neighbours(neurons_closest_together)
-        #TODO: Dash loses the names when storing as record arrays anyway (don't ask me why...)
         return [locations_df.to_records(index=False),
                 fluorescence_traces,
                 background_fluorescence,
@@ -152,7 +151,7 @@ def upload_data(list_of_contents, list_of_names):
 def create_neighbour_table(timestamp, neighbours):
     if timestamp is None:
         raise PreventUpdate
-    neighbour_df = pd.DataFrame.from_records(neighbours)
+    neighbour_df = neighbour_df_from_array(neighbours)
     print(neighbour_df)
     table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
     table_data = neighbour_df.to_dict('records')
@@ -192,13 +191,13 @@ def create_neighbour_table(timestamp, neighbours):
     Output('delete-button-placeholder', 'children'),
     Output('merge-button-placeholder', 'children'),
 ],
-    Input('neighbours', 'data'),
+    Input('neighbours_intermediate', 'data'),
     prevent_initial_call=True,
 )
 def create_drop_downs(neighbours):
     print("create_drop_downs called ")
     start_time = time.time()
-    neighbour_df = pd.DataFrame.from_records(neighbours)
+    neighbour_df = neighbour_df_from_array(neighbours)
 
     duration = time.time() - start_time
     print(f"the data part above took {duration}s")
@@ -283,7 +282,7 @@ def update_neighbours(uploaded_data, n_clicks,  cells_to_be_deleted, cached_data
     # there is already data in cache, and no one clicked a button:
     if n_clicks is None:
         raise PreventUpdate
-    neighbours_df = pd.DataFrame.from_records(cached_data)
+    neighbours_df = neighbour_df_from_array(cached_data)
     # delete the cells
     if cells_to_be_deleted:
         neighbours_df = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_deleted)
@@ -312,7 +311,7 @@ def update_cell_shape_plots(locations, timestamp, background_fluorescence, metad
 
     start_time = time.time()
     locations_df = pd.DataFrame.from_records(locations)
-    neighbours_df = pd.DataFrame.from_records(neighbours)
+    neighbours_df = neighbour_df_from_array(neighbours)
     duration = time.time() - start_time
     print(f"the data took {duration}s to load into a dataframe")
 

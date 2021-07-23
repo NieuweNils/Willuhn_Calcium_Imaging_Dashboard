@@ -118,21 +118,13 @@ def a_neurons_neighbours(neurons_close_to_another_df):
     neighbour_dict = create_neighbour_dict(neurons_close_to_another_df)
     rows = set(neighbour_dict.values())
     # Create the table as a list of lists
-    size_based_neuron_clusters = []
+    neighbours = []
     for row in rows:
         cells = [cell_number for cell_number, row_number in neighbour_dict.items() if row_number == row]
-        size_based_neuron_clusters.append(cells)
+        neighbours.append(cells)
 
-    # Convert to a Dataframe with columns
-    size_based_neuron_clusters_df = pd.DataFrame(size_based_neuron_clusters)
-
-    for column in size_based_neuron_clusters_df.columns:
-        if column == 0:
-            size_based_neuron_clusters_df.rename(columns={column: 'neuron'}, inplace=True)
-        else:
-            size_based_neuron_clusters_df.rename(columns={column: f'neighbour_{column}'}, inplace=True)
-
-    return size_based_neuron_clusters_df
+    # return a Dataframe with columns
+    return neighbour_df_from_array(neighbours)
 
 
 def correlating_neurons(fluorescence_traces):
@@ -148,6 +140,16 @@ def correlating_neurons(fluorescence_traces):
     return highly_correlating_neurons
 
 
+def neighbour_df_from_array(neighbours):
+    neighbour_df = pd.DataFrame(neighbours)
+    for column in neighbour_df.columns:
+        if column == 0:
+            neighbour_df.rename(columns={column: 'neuron'}, inplace=True)
+        else:
+            neighbour_df.rename(columns={column: f'neighbour_{column}'}, inplace=True)
+    return neighbour_df
+
+
 def delete_locations(df, delete_list):
     # df = df[~df.isin(delete_list)]
     return df
@@ -159,9 +161,8 @@ def delete_traces(df, delete_list):
 
 
 def delete_neighbours(df, delete_list):
+    # take out the cells in the delete_list
     df = df[~df.isin(delete_list)]
-
-    # mask = df.isna()
-    # # TODO: remake the dataframe after you've removed entries
-    df = df.apply(lambda x: x.shift(-1, axis=1) if np.isnan(x[0]) else x)
+    # shift all the values to the left that were next to those values
+    df = df.apply(lambda x: (x.shift(-1) if np.isnan(x[0]) else x), axis=1)
     return df
