@@ -310,7 +310,7 @@ def frames_double_cells_outline_plot(neuron_positions, neighbours_df, d1, d2):
                                           d2)
         # add neighbours in gray
         neighbours = neighbours_df[neighbours_df['neuron'] == cell_number].values
-        neighbours = neighbours[~np.isnan(neighbours)]
+        neighbours = neighbours[~pd.isnull(neighbours)]
         neighbours = neighbours[1:, ]  # drop first column, that's the neuron itself
         for neighbour in neighbours:
             position_neighbour, amount_of_pixels_neighbour = find_pixels(neuron_positions, int(neighbour))

@@ -130,13 +130,23 @@ def upload_data(list_of_contents, list_of_names):
     print("upload_data called ")
     if list_of_contents is not None:
         print("parsing data")
+        start_time = time.time()
+
         locations, fluorescence_traces, background_fluorescence, metadata = parse_data(list_of_contents[0],
                                                                                        list_of_names[0])
+        duration = time.time() - start_time
+        print(f"parsing data took {duration}s")
+
         print("transforming the data")
+        start_time = time.time()
+
         locations_df = pd.DataFrame(locations)
         mean_locations = get_mean_locations(locations_df, metadata)
         neurons_closest_together = shortest_distances(mean_locations)
         neighbour_df = a_neurons_neighbours(neurons_closest_together)
+
+        duration = time.time() - start_time
+        print(f"transforming took {duration}s")
         return [locations_df.to_records(index=False),
                 fluorescence_traces,
                 background_fluorescence,
