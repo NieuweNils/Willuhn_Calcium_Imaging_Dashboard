@@ -44,7 +44,8 @@ def get_drop_down_list(neighbours_df):
         for i in range(len(row)):
             if not (row[i] is None or np.isnan(row[i])):  # NB: stupid dash changes stuff to None
                 drop_down_list.append({'label': f'cell {int(row[i])}', 'value': int(row[i])})
-    return drop_down_list
+    sorted_drop_down = sorted(drop_down_list, key=lambda list_entry: list_entry['value'])
+    return sorted_drop_down
 
 
 @app.callback(
