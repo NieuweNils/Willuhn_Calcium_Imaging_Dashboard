@@ -161,7 +161,7 @@ def upload_data(list_of_contents, list_of_names):
               )
 def update_neighbour_table(nb_upload, timestamp, nb_update):
     ctx = callback_context
-    if ctx.triggered[0]['prop_id'].split('.')[0] == "neighbours_intermediate":
+    if ctx.triggered[0]["prop_id"].split(".")[0] == "neighbours_intermediate":
         print("creating neighbour table for the first time")
         neighbour_df = pd.read_json(nb_upload)
         table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
@@ -193,7 +193,7 @@ def update_neighbour_table(nb_upload, timestamp, nb_update):
                                         "textAlign": "center",
                                     }
                                     )
-    if ctx.triggered[0]['prop_id'].split('.')[0] == "neighbours":
+    if ctx.triggered[0]["prop_id"].split(".")[0] == "neighbours":
         print("pushing update to neighbour table")
         neighbour_df = pd.read_json(nb_update)
         table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
@@ -320,37 +320,53 @@ def update_data_stores(n_clicks,
         Output("cell-shape-plot-2", "figure"),
     ],
     [
-        Input("neighbours_intermediate", "modified_timestamp"),
-        Input("neighbours", "modified_timestamp"),
+        Input("delete-button", "n_clicks"),
     ],
     [
-        State("locations_intermediate", "data"),
-        State("neighbours_intermediate", "data"),
-
-        State("background_fluorescence", "data"),
-        State("metadata", "data"),
-
-        State("locations_intermediate", "data"),
-        State("neighbours_intermediate", "data"),
-
+        State("drop-down-delete", "value"),
         State("cell-shape-plot-1", "figure"),
         State("cell-shape-plot-2", "figure"),
 
     ],
     prevent_initial_call=True
 )
-def update_cell_shape_plots(timestamp_upload, timestamp_update,
-                            loc_upload, nb_upload,
-                            background_fluorescence, metadata,
-                            loc_update, nb_update,
-                            fig_1, fig_2):
+def update_cell_shape_plots(n_clicks,
+                            cells_to_be_deleted,
+                            cell_outline_figure, double_cell_figure):
     print("update_cell_shape_plots called")
-    ctx = callback_context
-    if ctx.triggered[0]['prop_id'].split('.')[0] == "neighbours_intermediate":
+    if n_clicks is None:
+        print("no delete button clicks, raising PreventUpdate.")
+        raise PreventUpdate
+
+    cells_to_keep = [frame.name for frame in cell_outline_figure["frames"]]
+    for cell in cells_to_be_deleted:
+        cells_to_keep.remove(cell)
+
+    cell_outline_figure["frames"] = [cell_outline_figure["frames"][i] for i in cells_to_keep]
+    double_cell_figure["frames"] = [double_cell_figure["frames"][i] for i in cells_to_keep]
+
+    return [cell_outline_figure,
+            double_cell_figure]
+
+
+@app.callback(
+    [
+        Output("cell-shape-plot-1", "figure"),
+        Output("cell-shape-plot-2", "figure")
+    ],
+    Input("neighbours_intermediate", "modified_timestamp"),
+    [
+        State("neighbours_intermediate", "data"),
+        State("background_fluorescence", "data"),
+        State("metadata", "data"),
+    ],
+    prevent_initial_call=True
+)
+def create_cell_shape_plots(locations, neighbours, background_fluorescence, metadata):
         print("creating figures for the first time")
         start_time = time.time()
-        locations_df = pd.read_json(loc_upload)
-        neighbours_df = pd.read_json(nb_upload)
+        locations_df = pd.read_json(locations)
+        neighbours_df = pd.read_json(neighbours)
         duration = time.time() - start_time
         print(f"the data took {duration}s to load into a dataframe")
 
@@ -363,13 +379,6 @@ def update_cell_shape_plots(timestamp_upload, timestamp_update,
         double_cell_figure = cell_outlines_double_cells(locations_df, neighbours_df, metadata)
         duration = time.time() - start_time
         print(f"that figure took {duration}s to make")
+
         return [cell_outline_figure,
                 double_cell_figure]
-    elif ctx.triggered[0]['prop_id'].split('.')[0] == "neighbours":
-        print("Pushing an update to the figures")
-        raise PreventUpdate
-    else:
-        print("the context trigger does not seem to work.")
-        raise PreventUpdate
-
-
