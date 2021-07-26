@@ -153,58 +153,90 @@ def upload_data(list_of_contents, list_of_names):
 
 
 @app.callback(Output("neighbour-table", "children"),
-              Input("neighbours", "modified_timestamp"),
+              [Input("neighbours_intermediate", "data"),
+               Input("neighbours", "modified_timestamp"),
+               ],
               State("neighbours", "data"),
               prevent_initial_call=True,
               )
-def create_neighbour_table(timestamp, neighbours):
-    if timestamp is None:
-        raise PreventUpdate
-    neighbour_df = pd.read_json(neighbours)
-    table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
-    table_data = neighbour_df.to_dict("records")
+def update_neighbour_table(nb_upload, timestamp, nb_update):
+    ctx = callback_context
+    if ctx.triggered[0]['prop_id'].split('.')[0] == "neighbours_intermediate":
+        print("creating neighbour table for the first time")
+        neighbour_df = pd.read_json(nb_upload)
+        table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
+        table_data = neighbour_df.to_dict("records")
 
-    return dash_table.DataTable(id="neighbour-datatable",
-                                columns=table_columns,
-                                data=table_data,
-                                fixed_rows={"headers": True},
-                                style_header={
-                                    "backgroundColor": "transparent",
-                                    "fontFamily": font_family,
-                                    "font-size": "1rem",
-                                    "color": colours["light-green"],
-                                    "border": "0px transparent",
-                                    "textAlign": "center",
-                                },
-                                style_table={
-                                    "height": "300px",
-                                    "width": "600px",
-                                    "marginLeft": "5%",
-                                    "marginRight": "auto",
-                                    "overflowY": "auto",
-                                },
-                                style_cell={
-                                    "backgroundColor": colours["dark-green"],
-                                    "color": colours["white"],
-                                    "border": "0px transparent",
-                                    "textAlign": "center",
-                                }
-                                )
+        return dash_table.DataTable(id="neighbour-datatable",
+                                    columns=table_columns,
+                                    data=table_data,
+                                    fixed_rows={"headers": True},
+                                    style_header={
+                                        "backgroundColor": "transparent",
+                                        "fontFamily": font_family,
+                                        "font-size": "1rem",
+                                        "color": colours["light-green"],
+                                        "border": "0px transparent",
+                                        "textAlign": "center",
+                                    },
+                                    style_table={
+                                        "height": "300px",
+                                        "width": "600px",
+                                        "marginLeft": "5%",
+                                        "marginRight": "auto",
+                                        "overflowY": "auto",
+                                    },
+                                    style_cell={
+                                        "backgroundColor": colours["dark-green"],
+                                        "color": colours["white"],
+                                        "border": "0px transparent",
+                                        "textAlign": "center",
+                                    }
+                                    )
+    if ctx.triggered[0]['prop_id'].split('.')[0] == "neighbours":
+        print("pushing update to neighbour table")
+        neighbour_df = pd.read_json(nb_update)
+        table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
+        table_data = neighbour_df.to_dict("records")
+
+        return dash_table.DataTable(id="neighbour-datatable",
+                                    columns=table_columns,
+                                    data=table_data,
+                                    fixed_rows={"headers": True},
+                                    style_header={
+                                        "backgroundColor": "transparent",
+                                        "fontFamily": font_family,
+                                        "font-size": "1rem",
+                                        "color": colours["light-green"],
+                                        "border": "0px transparent",
+                                        "textAlign": "center",
+                                    },
+                                    style_table={
+                                        "height": "300px",
+                                        "width": "600px",
+                                        "marginLeft": "5%",
+                                        "marginRight": "auto",
+                                        "overflowY": "auto",
+                                    },
+                                    style_cell={
+                                        "backgroundColor": colours["dark-green"],
+                                        "color": colours["white"],
+                                        "border": "0px transparent",
+                                        "textAlign": "center",
+                                    }
+                                    )
 
 
 # TODO: change this to make use of the rows of neighbouring cells
 @app.callback([
     Output("drop-down-delete-placeholder", "children"),
     Output("drop-down-merge-placeholder", "children"),
-    Output("delete-button-placeholder", "children"),
-    Output("merge-button-placeholder", "children"),
 ],
     [Input("neighbours_intermediate", "data"),
-     Input("neighbours", "modified_timestamp")],
-    State("neighbours", "data"),
+     Input("neighbours", "data")],
     prevent_initial_call=True,
 )
-def create_drop_downs(uploaded_data, timestamp, cached_data):
+def create_drop_downs(uploaded_data, cached_data):
     if cached_data is None:
         if uploaded_data is not None:
             neighbours = uploaded_data
@@ -222,9 +254,18 @@ def create_drop_downs(uploaded_data, timestamp, cached_data):
                          placeholder="Select cells to delete"),
             dcc.Dropdown(id="drop-down-merge", options=drop_down_list_merge, multi=True,
                          placeholder="Select cells to merge"),
-            html.Button("Delete selected cells", id="delete-button", style=upload_button_style),
-            html.Button("Merge selected cells", id="merge-button", style=upload_button_style),
+
             ]
+
+
+@app.callback(
+    [Output("delete-button-placeholder", "children"),
+     Output("merge-button-placeholder", "children")],
+    Input("neighbours_intermediate", "modified_timestamp")
+)
+def create_delete_and_merge_buttons(timestamp):
+    return [html.Button("Delete selected cells", id="delete-button", style=upload_button_style),
+            html.Button("Merge selected cells", id="merge-button", style=upload_button_style)]
 
 
 @app.callback(
@@ -233,29 +274,31 @@ def create_drop_downs(uploaded_data, timestamp, cached_data):
         Output("fluorescence_traces", "data"),
         Output("neighbours", "data")],
     [
-        Input("locations_intermediate", "data"),
-        Input("fluorescence_traces_intermediate", "data"),
-        Input("neighbours_intermediate", "data"),
-
         Input("delete-button", "n_clicks")],
     [
+        State("locations_intermediate", "data"),
+        State("fluorescence_traces_intermediate", "data"),
+        State("neighbours_intermediate", "data"),
+
         State("drop-down-delete", "value"),
 
         State("locations", "data"),
         State("fluorescence_traces", "data"),
         State("neighbours", "data")],
-              )
-def update_data_stores(uploaded_loc, uploaded_traces, uploaded_nb,
-                       n_clicks,
+    prevent_initial_call=True
+)
+def update_data_stores(n_clicks,
+                       uploaded_loc, uploaded_traces, uploaded_nb,
                        cells_to_be_deleted,
                        cached_loc, cached_traces, cached_nb):
     print("update_data_stores called")
     # if there is no data in the Stores, use the uploaded data
     if cached_loc is None or cached_traces is None or cached_nb is None:
-        return [uploaded_loc, uploaded_traces, uploaded_nb]
+        (cached_loc, cached_traces, cached_nb) = uploaded_loc, uploaded_traces, uploaded_nb
 
     # there is already data in cache, and no one clicked a button:
     if n_clicks is None:
+        print("no delete button clicks, raising PreventUpdate.")
         raise PreventUpdate
 
     # delete the cells
@@ -266,8 +309,8 @@ def update_data_stores(uploaded_loc, uploaded_traces, uploaded_nb,
         updated_traces = delete_traces(array=cached_traces, delete_list=cells_to_be_deleted)
         updated_neighbours = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_deleted).to_json()
         return [updated_locations, updated_traces, updated_neighbours]
-
     else:
+        print("no cells to be deleted, raising PreventUpdate")
         raise PreventUpdate
 
 
@@ -277,32 +320,56 @@ def update_data_stores(uploaded_loc, uploaded_traces, uploaded_nb,
         Output("cell-shape-plot-2", "figure"),
     ],
     [
-        Input("locations_intermediate", "data"),
-        Input("neighbours_intermediate", "data"),
-        Input("background_fluorescence", "data"),
-        Input("metadata", "data")
+        Input("neighbours_intermediate", "modified_timestamp"),
+        Input("neighbours", "modified_timestamp"),
+    ],
+    [
+        State("locations_intermediate", "data"),
+        State("neighbours_intermediate", "data"),
+
+        State("background_fluorescence", "data"),
+        State("metadata", "data"),
+
+        State("locations_intermediate", "data"),
+        State("neighbours_intermediate", "data"),
+
+        State("cell-shape-plot-1", "figure"),
+        State("cell-shape-plot-2", "figure"),
+
     ],
     prevent_initial_call=True
 )
-def create_cell_shape_plots(locations, neighbours, background_fluorescence, metadata):
-    print("create_cell_shape_plots called")
+def update_cell_shape_plots(timestamp_upload, timestamp_update,
+                            loc_upload, nb_upload,
+                            background_fluorescence, metadata,
+                            loc_update, nb_update,
+                            fig_1, fig_2):
+    print("update_cell_shape_plots called")
+    ctx = callback_context
+    if ctx.triggered[0]['prop_id'].split('.')[0] == "neighbours_intermediate":
+        print("creating figures for the first time")
+        start_time = time.time()
+        locations_df = pd.read_json(loc_upload)
+        neighbours_df = pd.read_json(nb_upload)
+        duration = time.time() - start_time
+        print(f"the data took {duration}s to load into a dataframe")
 
-    start_time = time.time()
-    locations_df = pd.read_json(locations)
-    neighbours_df = pd.read_json(neighbours)
-    duration = time.time() - start_time
-    print(f"the data took {duration}s to load into a dataframe")
+        start_time = time.time()
+        cell_outline_figure = cell_outlines(locations_df, metadata, background=background_fluorescence)
+        duration = time.time() - start_time
+        print(f"that figure took {duration}s to make")
 
-    start_time = time.time()
-    cell_outline_figure = cell_outlines(locations_df, metadata, background=background_fluorescence)
-    duration = time.time() - start_time
-    print(f"that figure took {duration}s to make")
+        start_time = time.time()
+        double_cell_figure = cell_outlines_double_cells(locations_df, neighbours_df, metadata)
+        duration = time.time() - start_time
+        print(f"that figure took {duration}s to make")
+        return [cell_outline_figure,
+                double_cell_figure]
+    elif ctx.triggered[0]['prop_id'].split('.')[0] == "neighbours":
+        print("Pushing an update to the figures")
+        raise PreventUpdate
+    else:
+        print("the context trigger does not seem to work.")
+        raise PreventUpdate
 
-    start_time = time.time()
-    double_cell_figure = cell_outlines_double_cells(locations_df, neighbours_df, metadata)
-    duration = time.time() - start_time
-    print(f"that figure took {duration}s to make")
 
-    return [cell_outline_figure,
-            double_cell_figure,
-            ]
