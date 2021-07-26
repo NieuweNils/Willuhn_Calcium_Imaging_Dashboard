@@ -50,7 +50,6 @@ def get_drop_down_list(neighbours_df):
     return sorted_drop_down
 
 
-# TODO: make this callback fire only once
 @app.callback(
     Output("download-data-placeholder", "children"),
     Input("neighbours_intermediate", "modified_timestamp"),
