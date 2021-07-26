@@ -2,6 +2,7 @@ import base64
 import io
 import os
 import time
+import json
 
 import dash_core_components as dcc
 import dash_html_components as html
@@ -15,7 +16,7 @@ from scipy.io import loadmat, savemat
 
 from app import app
 from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours, \
-    delete_locations, delete_traces, delete_neighbours, neighbour_df_from_array
+    delete_locations, delete_traces, delete_neighbours
 from figures import cell_outlines, cell_outlines_double_cells
 from formatting import colours, font_family, upload_button_style
 
@@ -38,21 +39,21 @@ def play_video(n_clicks, playing):
     return playing
 
 
-# TODO: if I store the index of the cell in the neighbour_df, it'll be easier to merge & delete entries in the dashboard
+# TODO: if I store the index of the cell in the neighbour_df, it"ll be easier to merge & delete entries in the dashboard
 def get_drop_down_list(neighbours_df):
     drop_down_list = []
     for _, row in neighbours_df.iterrows():
         for i in range(len(row)):
             if not (row[i] is None or np.isnan(row[i])):  # NB: stupid dash changes stuff to None
-                drop_down_list.append({'label': f'cell {int(row[i])}', 'value': int(row[i])})
-    sorted_drop_down = sorted(drop_down_list, key=lambda list_entry: list_entry['value'])
+                drop_down_list.append({"label": f"cell {int(row[i])}", "value": int(row[i])})
+    sorted_drop_down = sorted(drop_down_list, key=lambda list_entry: list_entry["value"])
     return sorted_drop_down
 
 
 @app.callback(
     Output("download-data-placeholder", "children"),
-    [Input('locations', 'data'),
-     Input('neighbours', 'modified_timestamp')],
+    [Input("locations", "data"),
+     Input("neighbours", "modified_timestamp")],
     prevent_initial_call=True,
 )
 def update_download_button(locations, timestamp_neighbours):
@@ -61,53 +62,50 @@ def update_download_button(locations, timestamp_neighbours):
         [html.Button("Download data",
                      id="download-button",
                      style=upload_button_style),
-         dcc.Download(id='download-data'),
+         dcc.Download(id="download-data"),
          ],
     )
 
 
 @app.callback(
     Output("download-data", "data"),
-    [Input("download-button", "n_clicks"),
-     Input("locations", "data"),
-     Input("fluorescence_traces", "data"),
-     Input("background_fluorescence", "data"),
-     Input("metadata", "data"),
-     Input("neurons_closest_together", "data"),
-     Input("neighbours", "modified_timestamp"),
+    Input("download-button", "n_clicks"),
+    [State("locations", "data"),
+     State("fluorescence_traces", "data"),
+     State("background_fluorescence", "data"),
+     State("metadata", "data"),
+     State("neighbours", "data"),
      ],
-    State("neighbours", "data"),
     prevent_initial_call=True,
 )
-def download_data(n_clicks, locations, traces, background, metadata, neurons_closest_together, timestamp, neighbours):
+def download_data(n_clicks, locations, traces, background, metadata, neighbours):
     if n_clicks is None:
         raise PreventUpdate
-    if timestamp is None:
-        raise PreventUpdate
+    loc_array = pd.read_json(locations).to_numpy(dtype="float", na_value=np.nan)
+    nb_array = pd.read_json(neighbours).to_numpy(dtype="float", na_value=np.nan)
     processed_data = {
-        "locations": locations,
+        "locations": loc_array,  # this should be a list for speed optimization (no dataframe.to_json)
         "traces": traces,
         "background": background,
         "metadata": metadata,
-        "neurons_closest_together": neurons_closest_together,
-        "neighbours": neighbours,
+        "neighbours": nb_array,
     }
     savemat("processed_data.mat", mdict=processed_data)
     return dcc.send_file("processed_data.mat")
 
 
 def parse_data(contents, filename):
-    content_type, content_string = contents.split(',')
+    content_type, content_string = contents.split(",")
     decoded = base64.b64decode(content_string)
     try:
-        if 'mat' in filename:
+        if "mat" in filename:
             # Assume that the user uploaded a .mat file
             data_after_cnmf_e = loadmat(
                 io.BytesIO(decoded)
-            )['results']
-            locations = data_after_cnmf_e['A'][0][0].todense()
-            fluorescence_traces = np.array(data_after_cnmf_e['C'][0][0])
-            background_fluorescence = np.array(data_after_cnmf_e['Cn'][0][0])
+            )["results"]
+            locations = data_after_cnmf_e["A"][0][0].todense()
+            fluorescence_traces = np.array(data_after_cnmf_e["C"][0][0])
+            background_fluorescence = np.array(data_after_cnmf_e["Cn"][0][0])
             options = retrieve_metadata(data_after_cnmf_e)
     except Exception as e:
         print(e)
@@ -115,15 +113,14 @@ def parse_data(contents, filename):
     return locations, fluorescence_traces, background_fluorescence, options
 
 
-@app.callback([Output('locations_intermediate', 'data'),
-               Output('fluorescence_traces_intermediate', 'data'),
-               Output('background_fluorescence', 'data'),
-               Output('metadata', 'data'),
-               Output('neurons_closest_together_intermediate', 'data'),  # TODO: Check if this still has to be cached
-               Output('neighbours_intermediate', 'data'),
+@app.callback([Output("locations_intermediate", "data"),
+               Output("fluorescence_traces_intermediate", "data"),
+               Output("background_fluorescence", "data"),
+               Output("metadata", "data"),
+               Output("neighbours_intermediate", "data"),
                ],
-              [Input('upload-data', 'contents')],
-              [State('upload-data', 'filename')],
+              [Input("upload-data", "contents")],
+              [State("upload-data", "filename")],
               prevent_initial_call=True,
               )
 def upload_data(list_of_contents, list_of_names):
@@ -147,66 +144,65 @@ def upload_data(list_of_contents, list_of_names):
 
         duration = time.time() - start_time
         print(f"transforming took {duration}s")
-        return [locations_df.to_records(index=False),
+        return [locations_df.to_json(),
                 fluorescence_traces,
                 background_fluorescence,
                 metadata,
-                neurons_closest_together.to_records(index=False),
-                neighbour_df.to_records(index=False),
+                neighbour_df.to_json(),
                 ]
-    return [None, None, None, None, None, None]
+    return [None, None, None, None, None]
 
 
-@app.callback(Output('neighbour-table', 'children'),
-              Input('neighbours', 'modified_timestamp'),
-              State('neighbours', 'data'),
+@app.callback(Output("neighbour-table", "children"),
+              Input("neighbours", "modified_timestamp"),
+              State("neighbours", "data"),
               prevent_initial_call=True,
               )
 def create_neighbour_table(timestamp, neighbours):
     if timestamp is None:
         raise PreventUpdate
-    neighbour_df = neighbour_df_from_array(neighbours)
+    neighbour_df = pd.read_json(neighbours)
     table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
-    table_data = neighbour_df.to_dict('records')
+    table_data = neighbour_df.to_dict("records")
 
-    return dash_table.DataTable(id='neighbour-datatable',
+    return dash_table.DataTable(id="neighbour-datatable",
                                 columns=table_columns,
                                 data=table_data,
-                                fixed_rows={'headers': True},
+                                fixed_rows={"headers": True},
                                 style_header={
-                                    'backgroundColor': 'transparent',
-                                    'fontFamily': font_family,
-                                    'font-size': '1rem',
-                                    'color': colours['light-green'],
-                                    'border': '0px transparent',
-                                    'textAlign': 'center',
+                                    "backgroundColor": "transparent",
+                                    "fontFamily": font_family,
+                                    "font-size": "1rem",
+                                    "color": colours["light-green"],
+                                    "border": "0px transparent",
+                                    "textAlign": "center",
                                 },
                                 style_table={
-                                    'height': '300px',
-                                    'width': '600px',
-                                    'marginLeft': '5%',
-                                    'marginRight': 'auto',
-                                    'overflowY': 'auto',
+                                    "height": "300px",
+                                    "width": "600px",
+                                    "marginLeft": "5%",
+                                    "marginRight": "auto",
+                                    "overflowY": "auto",
                                 },
                                 style_cell={
-                                    'backgroundColor': colours['dark-green'],
-                                    'color': colours['white'],
-                                    'border': '0px transparent',
-                                    'textAlign': 'center',
+                                    "backgroundColor": colours["dark-green"],
+                                    "color": colours["white"],
+                                    "border": "0px transparent",
+                                    "textAlign": "center",
                                 }
                                 )
 
 
 # TODO: change this to make use of the rows of neighbouring cells
 @app.callback([
-    Output('drop-down-delete-placeholder', 'children'),
-    Output('drop-down-merge-placeholder', 'children'),
-    Output('delete-button-placeholder', 'children'),
-    Output('merge-button-placeholder', 'children'),
+    Output("drop-down-delete-placeholder", "children"),
+    Output("drop-down-merge-placeholder", "children"),
+    Output("delete-button-placeholder", "children"),
+    Output("merge-button-placeholder", "children"),
 ],
-    [Input('neighbours_intermediate', 'data'),
-     Input('neighbours', 'modified_timestamp')],
-    State('neighbours', 'data'),
+    [Input("neighbours_intermediate", "data"),
+     Input("neighbours", "modified_timestamp")],
+    State("neighbours", "data"),
     prevent_initial_call=True,
 )
 def create_drop_downs(uploaded_data, timestamp, cached_data):
@@ -217,114 +213,77 @@ def create_drop_downs(uploaded_data, timestamp, cached_data):
         neighbours = cached_data
     print("create_drop_downs called ")
     start_time = time.time()
-    neighbour_df = neighbour_df_from_array(neighbours)
+    neighbour_df = pd.read_json(neighbours)
 
     duration = time.time() - start_time
     print(f"the data part above took {duration}s")
     drop_down_list_delete = get_drop_down_list(neighbour_df)
     drop_down_list_merge = get_drop_down_list(neighbour_df)
-    return [dcc.Dropdown(id='drop-down-delete', options=drop_down_list_delete, multi=True,
+    return [dcc.Dropdown(id="drop-down-delete", options=drop_down_list_delete, multi=True,
                          placeholder="Select cells to delete"),
-            dcc.Dropdown(id='drop-down-merge', options=drop_down_list_merge, multi=True,
+            dcc.Dropdown(id="drop-down-merge", options=drop_down_list_merge, multi=True,
                          placeholder="Select cells to merge"),
             html.Button("Delete selected cells", id="delete-button", style=upload_button_style),
             html.Button("Merge selected cells", id="merge-button", style=upload_button_style),
             ]
 
 
-@app.callback(Output('locations', 'data'),
-              [
-                  Input('locations_intermediate', 'data'),
-                  Input('delete-button', 'n_clicks'),
-              ],
-              [
-                  State('drop-down-delete', 'value'),
-                  State('locations', 'data')],
+@app.callback(
+    [
+        Output("locations", "data"),
+        Output("fluorescence_traces", "data"),
+        Output("neighbours", "data")],
+    [
+        Input("locations_intermediate", "data"),
+        Input("fluorescence_traces_intermediate", "data"),
+        Input("neighbours_intermediate", "data"),
+
+        Input("delete-button", "n_clicks")],
+    [
+        State("drop-down-delete", "value"),
+
+        State("locations", "data"),
+        State("fluorescence_traces", "data"),
+        State("neighbours", "data")],
               )
-def update_locations(uploaded_data, n_clicks, cells_to_be_deleted, cached_data):
-    print("update_locations called")
-    # if there is no data in the "locations" Store, use the uploaded data
-    if cached_data is None:
-        if uploaded_data is not None:
-            return uploaded_data
+def update_data_stores(uploaded_loc, uploaded_traces, uploaded_nb,
+                       n_clicks,
+                       cells_to_be_deleted,
+                       cached_loc, cached_traces, cached_nb):
+    print("update_data called")
+    # if there is no data in the Stores, use the uploaded data
+    if cached_loc is None or cached_traces is None or cached_nb is None:
+        return [uploaded_loc, uploaded_traces, uploaded_nb]
+
     # there is already data in cache, and no one clicked a button:
     if n_clicks is None:
         raise PreventUpdate
 
-    location_df = pd.DataFrame.from_records(cached_data)
     # delete the cells
     if cells_to_be_deleted:
-        location_df = delete_locations(df=location_df, delete_list=cells_to_be_deleted)
-        return location_df.to_records(index=False)
-    raise PreventUpdate
+        locations_df = pd.read_json(cached_loc)
+        neighbours_df = pd.read_json(cached_nb)
+        updated_locations = delete_locations(df=locations_df, delete_list=cells_to_be_deleted).to_json()
+        updated_traces = delete_traces(array=cached_traces, delete_list=cells_to_be_deleted)
+        updated_neighbours = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_deleted).to_json()
+        return [updated_locations, updated_traces, updated_neighbours]
 
-
-@app.callback(Output('fluorescence_traces', 'data'),
-              [
-                  Input('fluorescence_traces_intermediate', 'data'),
-                  Input('delete-button', 'n_clicks'),
-              ],
-              [
-                  State('drop-down-delete', 'value'),
-                  State('fluorescence_traces', 'data')],
-              )
-def update_fluorescence_traces(uploaded_data, n_clicks, cells_to_be_deleted, cached_data):
-    print("update_fluorescence_traces called")
-    # if there is no data in the "fluorescence traces" Store, use the uploaded data
-    if cached_data is None:
-        if uploaded_data is not None:
-            return uploaded_data
-    # there is already data in cache, and no one clicked a button:
-    if n_clicks is None:
+    else:
         raise PreventUpdate
-
-    traces_df = pd.DataFrame.from_records(cached_data)
-    # delete the cells
-    if cells_to_be_deleted:
-        traces_df = delete_traces(df=traces_df, delete_list=cells_to_be_deleted)
-        return traces_df.to_records(index=False)
-    raise PreventUpdate
-
-
-@app.callback(Output('neighbours', 'data'),
-              [
-                  Input('neighbours_intermediate', 'data'),
-                  Input('delete-button', 'n_clicks'),
-              ],
-              [
-                  State('drop-down-delete', 'value'),
-                  State('neighbours', 'data')],
-              )
-def update_neighbours(uploaded_data, n_clicks, cells_to_be_deleted, cached_data):
-    print("update_neighbours called")
-    # if there is no data in the "neighbours" Store, use the uploaded data
-    if cached_data is None:
-        if uploaded_data is not None:
-            return uploaded_data
-    # there is already data in cache, and no one clicked a button:
-    if n_clicks is None:
-        raise PreventUpdate
-
-    neighbours_df = neighbour_df_from_array(cached_data)
-    # delete the cells
-    if cells_to_be_deleted:
-        neighbours_df = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_deleted)
-        return neighbours_df.to_records(index=False)
-    raise PreventUpdate
 
 
 @app.callback(
     [
-        Output('cell-shape-plot-1', 'figure'),
-        Output('cell-shape-plot-2', 'figure'),
+        Output("cell-shape-plot-1", "figure"),
+        Output("cell-shape-plot-2", "figure"),
     ],
     [
-        Input('locations', 'data'),
-        Input('neighbours', 'modified_timestamp'),
-        Input('background_fluorescence', 'data'),
-        Input('metadata', 'data'),
+        Input("locations", "data"),
+        Input("neighbours", "modified_timestamp"),
+        Input("background_fluorescence", "data"),
+        Input("metadata", "data"),
     ],
-    State('neighbours', 'data'),
+    State("neighbours", "data"),
     prevent_initial_call=True
 )
 def update_cell_shape_plots(locations, timestamp, background_fluorescence, metadata, neighbours):
@@ -333,8 +292,8 @@ def update_cell_shape_plots(locations, timestamp, background_fluorescence, metad
         raise PreventUpdate
 
     start_time = time.time()
-    locations_df = pd.DataFrame.from_records(locations)
-    neighbours_df = neighbour_df_from_array(neighbours)
+    locations_df = pd.read_json(locations)
+    neighbours_df = pd.read_json(neighbours)
     duration = time.time() - start_time
     print(f"the data took {duration}s to load into a dataframe")
 

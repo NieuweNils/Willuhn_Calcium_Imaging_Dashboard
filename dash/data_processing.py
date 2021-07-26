@@ -10,12 +10,12 @@ def retrieve_metadata(data_after_cnmf_e):
     :param data_after_cnmf_e: a matlab variable retrieved after using the CNMF_E algorithm on Ca-imaging data
     :return: an "metadata" dictionary with all retrieved "options" variables
     """
-    names_dict = data_after_cnmf_e['options'][0][0].dtype
+    names_dict = data_after_cnmf_e["options"][0][0].dtype
     names = [name for name in names_dict.fields.keys()]
 
     metadata = {}
     for i in range(26):
-        option = data_after_cnmf_e['options'][0][0][0][0][i][0]
+        option = data_after_cnmf_e["options"][0][0][0][0][i][0]
         if isinstance(option, str):
             metadata[names[i]] = option
         elif isinstance(option, np.ndarray):
@@ -43,7 +43,7 @@ def get_pixel_df(locations_df):
 
 
 def get_col_and_row_df(pixel_df, metadata):
-    d1 = metadata['d1']  # width of recording in #pixels (or was it height?)
+    d1 = metadata["d1"]  # width of recording in #pixels (or was it height?)
     col_df = pixel_df.apply(lambda x: x // d1)
     row_df = pixel_df.apply(lambda x: x % d1)
     return col_df, row_df
@@ -78,12 +78,12 @@ def get_mean_locations(locations_df, metadata):
 
 def shortest_distances(mean_locations_df, small_distance=10):
     # Calculate pairwise euclidian distances
-    distance_df = pd.DataFrame(itertools.combinations(mean_locations_df.index, 2), columns=['neuron_1', 'neuron_2'])
-    distance_df['distance'] = pdist(mean_locations_df.values, 'euclid')
+    distance_df = pd.DataFrame(itertools.combinations(mean_locations_df.index, 2), columns=["neuron_1", "neuron_2"])
+    distance_df["distance"] = pdist(mean_locations_df.values, "euclid")
 
     # Select neurons that are very close together
     # TODO: write test cases to check that algorithms work as intended
-    neurons_closest_together_df = distance_df[distance_df['distance'] < small_distance]
+    neurons_closest_together_df = distance_df[distance_df["distance"] < small_distance]
     return neurons_closest_together_df
 
 
@@ -122,9 +122,15 @@ def a_neurons_neighbours(neurons_close_to_another_df):
     for row in rows:
         cells = [cell_number for cell_number, row_number in neighbour_dict.items() if row_number == row]
         neighbours.append(cells)
-
     # return a Dataframe with columns
-    return neighbour_df_from_array(neighbours)
+    neighbour_df = pd.DataFrame(neighbours)
+    for column in neighbour_df.columns:
+        if column == 0:
+            neighbour_df.rename(columns={column: "neuron"}, inplace=True)
+        else:
+            neighbour_df.rename(columns={column: f"neighbour_{column}"}, inplace=True)
+
+    return neighbour_df
 
 
 def correlating_neurons(fluorescence_traces):
@@ -140,31 +146,24 @@ def correlating_neurons(fluorescence_traces):
     return highly_correlating_neurons
 
 
-def neighbour_df_from_array(neighbours):
-    neighbour_df = pd.DataFrame(neighbours)
-    for column in neighbour_df.columns:
-        if column == 0:
-            neighbour_df.rename(columns={column: 'neuron'}, inplace=True)
-        else:
-            neighbour_df.rename(columns={column: f'neighbour_{column}'}, inplace=True)
-    return neighbour_df
-
-
 def delete_locations(df, delete_list):
+    print("deleting cells from locations_df")
     df = df.drop(delete_list, axis=1)  # pixel locations are stored column based (for a reason I don't remember)
     return df
 
 
-def delete_traces(df, delete_list):
-    df = df.drop(delete_list)  # traces are stored row based
-    return df
+def delete_traces(array, delete_list):
+    print("deleting cells from traces")
+    updated_array = np.delete(array, delete_list, axis=0)  # traces are stored row based
+    return updated_array
 
 
 def delete_neighbours(df, delete_list):
+    print("deleting cells from neighbours_df")
     # take out the cells in the delete_list
     df = df[~df.isin(delete_list)]
     # drop all rows that are completely empty
-    df = df.dropna(how='all')
+    df = df.dropna(how="all")
     # shift all the values to the left that were next to NaN values
     df = df.apply(lambda row: shift_away_nans(row), axis=1)
     return df
