@@ -50,13 +50,13 @@ def get_drop_down_list(neighbours_df):
     return sorted_drop_down
 
 
+# TODO: make this callback fire only once
 @app.callback(
     Output("download-data-placeholder", "children"),
-    [Input("locations", "data"),
-     Input("neighbours", "modified_timestamp")],
+    Input("neighbours_intermediate", "modified_timestamp"),
     prevent_initial_call=True,
 )
-def update_download_button(locations, timestamp_neighbours):
+def update_download_button(timestamp_neighbours):
     print("update_download_button called")
     return html.Div(
         [html.Button("Download data",
@@ -250,7 +250,7 @@ def update_data_stores(uploaded_loc, uploaded_traces, uploaded_nb,
                        n_clicks,
                        cells_to_be_deleted,
                        cached_loc, cached_traces, cached_nb):
-    print("update_data called")
+    print("update_data_stores called")
     # if there is no data in the Stores, use the uploaded data
     if cached_loc is None or cached_traces is None or cached_nb is None:
         return [uploaded_loc, uploaded_traces, uploaded_nb]
@@ -278,18 +278,15 @@ def update_data_stores(uploaded_loc, uploaded_traces, uploaded_nb,
         Output("cell-shape-plot-2", "figure"),
     ],
     [
-        Input("locations", "data"),
-        Input("neighbours", "modified_timestamp"),
+        Input("locations_intermediate", "data"),
+        Input("neighbours_intermediate", "data"),
         Input("background_fluorescence", "data"),
-        Input("metadata", "data"),
+        Input("metadata", "data")
     ],
-    State("neighbours", "data"),
     prevent_initial_call=True
 )
-def update_cell_shape_plots(locations, timestamp, background_fluorescence, metadata, neighbours):
-    print("update_cell_shape_plots called")
-    if timestamp is None:
-        raise PreventUpdate
+def create_cell_shape_plots(locations, neighbours, background_fluorescence, metadata):
+    print("create_cell_shape_plots called")
 
     start_time = time.time()
     locations_df = pd.read_json(locations)
