@@ -13,11 +13,13 @@ from dash import callback_context
 from dash.dependencies import Output, Input, State
 from dash.exceptions import PreventUpdate
 from scipy.io import loadmat, savemat
+import plotly.graph_objs as go
+
 
 from app import app
 from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours, \
     delete_locations, delete_traces, delete_neighbours
-from figures import cell_outlines, cell_outlines_double_cells
+from figures import cell_outlines, cell_outlines_double_cells, update_cell_outlines
 from formatting import colours, font_family, upload_button_style
 
 
@@ -52,7 +54,7 @@ def get_drop_down_list(neighbours_df):
 
 @app.callback(
     Output("download-data-placeholder", "children"),
-    Input("neighbours_intermediate", "modified_timestamp"),
+    Input("neighbours", "modified_timestamp"),
     prevent_initial_call=True,
 )
 def update_download_button(timestamp_neighbours):
@@ -143,6 +145,7 @@ def upload_data(list_of_contents, list_of_names):
 
         duration = time.time() - start_time
         print(f"transforming took {duration}s")
+
         return [locations_df.to_json(),
                 fluorescence_traces,
                 background_fluorescence,
@@ -164,73 +167,49 @@ def update_neighbour_table(nb_upload, timestamp, nb_update):
     if ctx.triggered[0]["prop_id"].split(".")[0] == "neighbours_intermediate":
         print("creating neighbour table for the first time")
         neighbour_df = pd.read_json(nb_upload)
-        table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
-        table_data = neighbour_df.to_dict("records")
-
-        return dash_table.DataTable(id="neighbour-datatable",
-                                    columns=table_columns,
-                                    data=table_data,
-                                    fixed_rows={"headers": True},
-                                    style_header={
-                                        "backgroundColor": "transparent",
-                                        "fontFamily": font_family,
-                                        "font-size": "1rem",
-                                        "color": colours["light-green"],
-                                        "border": "0px transparent",
-                                        "textAlign": "center",
-                                    },
-                                    style_table={
-                                        "height": "300px",
-                                        "width": "600px",
-                                        "marginLeft": "5%",
-                                        "marginRight": "auto",
-                                        "overflowY": "auto",
-                                    },
-                                    style_cell={
-                                        "backgroundColor": colours["dark-green"],
-                                        "color": colours["white"],
-                                        "border": "0px transparent",
-                                        "textAlign": "center",
-                                    }
-                                    )
-    if ctx.triggered[0]["prop_id"].split(".")[0] == "neighbours":
+    elif ctx.triggered[0]["prop_id"].split(".")[0] == "neighbours":
         print("pushing update to neighbour table")
         neighbour_df = pd.read_json(nb_update)
-        table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
-        table_data = neighbour_df.to_dict("records")
+    else:
+        print("update_neighbour_table was triggered by an unknown trigger, raising PreventUpdate")
+        raise PreventUpdate
 
-        return dash_table.DataTable(id="neighbour-datatable",
-                                    columns=table_columns,
-                                    data=table_data,
-                                    fixed_rows={"headers": True},
-                                    style_header={
-                                        "backgroundColor": "transparent",
-                                        "fontFamily": font_family,
-                                        "font-size": "1rem",
-                                        "color": colours["light-green"],
-                                        "border": "0px transparent",
-                                        "textAlign": "center",
-                                    },
-                                    style_table={
-                                        "height": "300px",
-                                        "width": "600px",
-                                        "marginLeft": "5%",
-                                        "marginRight": "auto",
-                                        "overflowY": "auto",
-                                    },
-                                    style_cell={
-                                        "backgroundColor": colours["dark-green"],
-                                        "color": colours["white"],
-                                        "border": "0px transparent",
-                                        "textAlign": "center",
-                                    }
-                                    )
+    table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
+    table_data = neighbour_df.to_dict("records")
+
+    return dash_table.DataTable(id="neighbour-datatable",
+                                columns=table_columns,
+                                data=table_data,
+                                fixed_rows={"headers": True},
+                                style_header={
+                                    "backgroundColor": "transparent",
+                                    "fontFamily": font_family,
+                                    "font-size": "1rem",
+                                    "color": colours["light-green"],
+                                    "border": "0px transparent",
+                                    "textAlign": "center",
+                                },
+                                style_table={
+                                    "height": "300px",
+                                    "width": "600px",
+                                    "marginLeft": "0%",
+                                    "marginRight": "auto",
+                                    "overflowY": "auto",
+                                },
+                                style_cell={
+                                    "backgroundColor": colours["dark-green"],
+                                    "color": colours["white"],
+                                    "border": "0px transparent",
+                                    "textAlign": "center",
+                                }
+                                )
 
 
 # TODO: change this to make use of the rows of neighbouring cells
 @app.callback([
     Output("drop-down-delete-placeholder", "children"),
     Output("drop-down-merge-placeholder", "children"),
+    Output("trigger-cell-shape-plot", "data"),
 ],
     [Input("neighbours_intermediate", "data"),
      Input("neighbours", "data")],
@@ -254,14 +233,15 @@ def create_drop_downs(uploaded_data, cached_data):
                          placeholder="Select cells to delete"),
             dcc.Dropdown(id="drop-down-merge", options=drop_down_list_merge, multi=True,
                          placeholder="Select cells to merge"),
-
+            {"value": True},  # hack to trigger cell shape plot the first time
             ]
 
 
 @app.callback(
     [Output("delete-button-placeholder", "children"),
      Output("merge-button-placeholder", "children")],
-    Input("neighbours_intermediate", "modified_timestamp")
+    Input("neighbours_intermediate", "modified_timestamp"),
+    prevent_initial_call=True,
 )
 def create_delete_and_merge_buttons(timestamp):
     return [html.Button("Delete selected cells", id="delete-button", style=upload_button_style),
@@ -314,59 +294,27 @@ def update_data_stores(n_clicks,
         raise PreventUpdate
 
 
+# TODO: find out why this is not always triggered (and I think never by locations_intermediate)
 @app.callback(
-    [
-        Output("cell-shape-plot-1", "figure"),
-        Output("cell-shape-plot-2", "figure"),
-    ],
-    [
-        Input("delete-button", "n_clicks"),
-    ],
-    [
-        State("drop-down-delete", "value"),
-        State("cell-shape-plot-1", "figure"),
-        State("cell-shape-plot-2", "figure"),
-
-    ],
-    prevent_initial_call=True
+    [Output("cell-shape-plot-1", "children")],
+    [Input("trigger-cell-shape-plot", "data"),
+     Input("delete-button", "n_clicks")],
+    [State("locations_intermediate", "data"),
+     State("background_fluorescence", "data"),
+     State("metadata", "data"),
+     State("drop-down-delete", "value"),
+     State("cell-shape-plot-1", "children")],
 )
-def update_cell_shape_plots(n_clicks,
+def update_cell_shape_plots(trigger, n_clicks,
+                            locations, background_fluorescence, metadata,
                             cells_to_be_deleted,
-                            cell_outline_figure, double_cell_figure):
-    print("update_cell_shape_plots called")
-    if n_clicks is None:
-        print("no delete button clicks, raising PreventUpdate.")
-        raise PreventUpdate
-
-    cells_to_keep = [frame.name for frame in cell_outline_figure["frames"]]
-    for cell in cells_to_be_deleted:
-        cells_to_keep.remove(cell)
-
-    cell_outline_figure["frames"] = [cell_outline_figure["frames"][i] for i in cells_to_keep]
-    double_cell_figure["frames"] = [double_cell_figure["frames"][i] for i in cells_to_keep]
-
-    return [cell_outline_figure,
-            double_cell_figure]
-
-
-@app.callback(
-    [
-        Output("cell-shape-plot-1", "figure"),
-        Output("cell-shape-plot-2", "figure")
-    ],
-    Input("neighbours_intermediate", "modified_timestamp"),
-    [
-        State("neighbours_intermediate", "data"),
-        State("background_fluorescence", "data"),
-        State("metadata", "data"),
-    ],
-    prevent_initial_call=True
-)
-def create_cell_shape_plots(locations, neighbours, background_fluorescence, metadata):
+                            cell_shape_plot,
+                            ):
+    ctx = callback_context
+    if locations is not None and cell_shape_plot is None:
         print("creating figures for the first time")
         start_time = time.time()
         locations_df = pd.read_json(locations)
-        neighbours_df = pd.read_json(neighbours)
         duration = time.time() - start_time
         print(f"the data took {duration}s to load into a dataframe")
 
@@ -375,10 +323,24 @@ def create_cell_shape_plots(locations, neighbours, background_fluorescence, meta
         duration = time.time() - start_time
         print(f"that figure took {duration}s to make")
 
-        start_time = time.time()
-        double_cell_figure = cell_outlines_double_cells(locations_df, neighbours_df, metadata)
-        duration = time.time() - start_time
-        print(f"that figure took {duration}s to make")
+        return [dcc.Graph(id="cell_outline_graph",
+                          figure=cell_outline_figure),
+                ]
 
-        return [cell_outline_figure,
-                double_cell_figure]
+    if ctx.triggered[0]['prop_id'].split('.')[0] == "delete-button":
+        if n_clicks is None:
+            print("no delete button clicks, raising PreventUpdate.")
+            raise PreventUpdate
+        if cells_to_be_deleted is None:
+            print("no cells selected for deletion, raising PreventUpdate")
+            raise PreventUpdate
+        print("deleting frames from figure")
+        figure_settings = cell_shape_plot["props"]["figure"]
+        updated_figure_settings = update_cell_outlines(figure_settings, cells_to_be_deleted)
+        print("Pushing an update to the figures")
+        return [dcc.Graph(id="cell_outline_graph",
+                          figure=go.Figure(updated_figure_settings))
+                ]
+    else:
+        print("update_cell_shape_plots was triggered by an unknown, unexpected trigger. raising PreventUpdate")
+        raise PreventUpdate

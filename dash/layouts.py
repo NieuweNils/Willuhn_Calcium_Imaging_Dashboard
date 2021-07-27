@@ -463,9 +463,6 @@ double_cell_selector = html.Div([
             html.Div([  # start of graph field
 
                 html.Div([
-                    html.Div([
-                    ],
-                        className="col-1"),  # Blank 1 column
                     html.Div(id="neighbour-table",
                              className="col-4"),
                 ], className="row"
@@ -473,14 +470,12 @@ double_cell_selector = html.Div([
 
                 get_emptyrow(),
                 html.Div([
-                    html.Div([
-                        dcc.Graph(id="cell-shape-plot-1"),
-                    ], className="col-4"
-                    ),
-                    html.Div([
-                        dcc.Graph(id="cell-shape-plot-2"),
-                    ], className="col-4"
-                    ),
+                    html.Div(id="cell-shape-plot-1",
+                             className="col-4"),
+                    # html.Div([
+                    #     dcc.Graph(id="cell-shape-plot-2"),
+                    # ], className="col-4"
+                    # ),
                     html.Div([
                         html.Div(id="drop-down-delete-placeholder"),
                         html.Div(id="delete-button-placeholder"),
@@ -502,6 +497,7 @@ double_cell_selector = html.Div([
                 dcc.Store(id="metadata"),
                 dcc.Store(id="neighbours"),
                 dcc.Store(id="neighbours_intermediate"),
+                dcc.Store(id="trigger-cell-shape-plot"),
             ])
 
         ],

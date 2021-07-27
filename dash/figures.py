@@ -296,6 +296,25 @@ def cell_outlines(locations_df, metadata, background=None, layout_base=standard_
     return figure
 
 
+def update_cell_outlines(figure, cells_to_be_deleted, layout_base=standard_layout):
+    layout = copy(layout_base)  # Copy by value instead of reference
+    # make a list of the cells that should remain after the deletion
+    cells_to_keep = [int(frame['name']) for frame in figure["frames"]]
+    for cell in cells_to_be_deleted:
+        cells_to_keep.remove(cell)
+    # keep the setting for the cells_to_keep (==discard those for cells_to_be_deleted)
+    for figure in [figure]:
+        figure["frames"] = [frame for frame in figure["frames"] if int(frame["name"]) in cells_to_keep]
+        figure["data"] = figure["frames"][0]
+        steps = figure["layout"]["sliders"][0]["steps"]
+        buttons = figure["layout"]["updatemenus"][0]["buttons"]  # the drop down menu
+        figure["layout"]["sliders"][0]["steps"] = [step for step in steps if int(step["label"]) in cells_to_keep]
+        figure["layout"]["updatemenus"][0]["buttons"] = [button for button in buttons if int(button["label"][5:]) in cells_to_keep]
+
+    return {"data": figure["data"],
+            "layout": figure["layout"],
+            "frames": figure["frames"]}
+
 def frames_double_cells_outline_plot(neuron_positions, neighbours_df, d1, d2):
     frames = []
     frame_names = []
