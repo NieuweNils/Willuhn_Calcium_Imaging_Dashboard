@@ -91,7 +91,7 @@ x_axis = {
 }
 
 y_axis = {
-    'showgrid': True,
+    'showgrid': False,
     'color': colours['white'],
     'gridwidth': 0.5,
     'gridcolor': colours['white'],
@@ -129,7 +129,7 @@ standard_layout = go.Layout(
     title=title,
     title_x=0.5,
     paper_bgcolor=colours['super-dark-green'],
-    plot_bgcolor=colours['white'],
+    plot_bgcolor=colours['super-dark-green'],
     xaxis=x_axis,
     yaxis=y_axis,
     legend=legend,

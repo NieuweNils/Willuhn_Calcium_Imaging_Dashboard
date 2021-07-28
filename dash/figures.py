@@ -415,3 +415,33 @@ def correlation_plot(fluorescence_traces):
 
     return figure
 
+
+def line_chart(cells_to_display, traces, layout_base=standard_layout):
+    """
+    :param traces: a 2d numpy array of dimensions [channel, timestamp] that stores fluorescence traces for each neuron
+    :param layout_base: settings to use in plotly.graph_objs.figure['layout']
+    :return: a line chart object (of type plotly.graph_objs.figure where keys ['traces'] stores plotly.graph_objs.Scatter
+     objects)
+    """
+    figure = go.Figure()
+    stop = len(traces[0])
+    x_axis = list(range(0, stop))
+    number_of_cells = len(traces)
+    # TODO: Track the cell number of each of the traces
+    # TODO: (Otherwise I will be in trouble once cells are deleted & merged,
+    # TODO: because the indexes will not be the same after that)
+    traces_to_display = [traces[index] for index in list(range(number_of_cells)) if index in cells_to_display]
+    for trace in traces_to_display:
+        figure.add_trace(go.Scatter(x=x_axis, y=trace[0:stop], mode="lines"))
+
+    layout = copy(layout_base)  # Copy by value, NOT by reference
+    layout["xaxis"]["title"] = "time (ms)"
+    layout["xaxis"]["range"] = [0, x_axis[-1]]
+    layout["yaxis"]["title"] = "intensity of signal"
+    layout["yaxis"]["range"] = [0, np.max([scatter["y"] for scatter in figure["data"]])]
+    layout["autosize"] = False
+
+    figure.layout = layout
+
+    return figure
+

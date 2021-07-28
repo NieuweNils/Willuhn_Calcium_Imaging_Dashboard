@@ -19,7 +19,7 @@ import plotly.graph_objs as go
 from app import app
 from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours, \
     delete_locations, delete_traces, delete_neighbours
-from figures import cell_outlines, cell_outlines_double_cells, update_cell_outlines
+from figures import cell_outlines, update_cell_outlines, line_chart
 from formatting import colours, font_family, upload_button_style
 
 
@@ -209,6 +209,7 @@ def update_neighbour_table(nb_upload, timestamp, nb_update):
 @app.callback([
     Output("drop-down-delete-placeholder", "children"),
     Output("drop-down-merge-placeholder", "children"),
+    Output("drop-down-traces-placeholder", "children"),
     Output("trigger-cell-shape-plot", "data"),
 ],
     [Input("neighbours_intermediate", "data"),
@@ -227,12 +228,13 @@ def create_drop_downs(uploaded_data, cached_data):
 
     duration = time.time() - start_time
     print(f"the data part above took {duration}s")
-    drop_down_list_delete = get_drop_down_list(neighbour_df)
-    drop_down_list_merge = get_drop_down_list(neighbour_df)
-    return [dcc.Dropdown(id="drop-down-delete", options=drop_down_list_delete, multi=True,
+    drop_down_list_cells = get_drop_down_list(neighbour_df)
+    return [dcc.Dropdown(id="drop-down-delete", options=drop_down_list_cells, multi=True,
                          placeholder="Select cells to delete"),
-            dcc.Dropdown(id="drop-down-merge", options=drop_down_list_merge, multi=True,
+            dcc.Dropdown(id="drop-down-merge", options=drop_down_list_cells, multi=True,
                          placeholder="Select cells to merge"),
+            dcc.Dropdown(id="drop-down-traces", options=drop_down_list_cells, multi=True,
+                         placeholder="Select cells to show their traces"),
             {"value": True},  # hack to trigger cell shape plot the first time
             ]
 
@@ -344,3 +346,17 @@ def update_cell_shape_plots(trigger, n_clicks,
     else:
         print("update_cell_shape_plots was triggered by an unknown, unexpected trigger. raising PreventUpdate")
         raise PreventUpdate
+
+
+@app.callback(
+    Output("trace-plot", "figure"),
+    Input("drop-down-traces", "value"),
+    State("fluorescence_traces_intermediate", "data"),
+    prevent_initial_call=True
+)
+def update_trace_plot(cells_to_display, traces):
+    if cells_to_display is None or traces is None:
+        raise PreventUpdate
+    print("update_trace_plot called")
+    trace_plot = line_chart(cells_to_display, traces)
+    return trace_plot
