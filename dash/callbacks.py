@@ -334,12 +334,12 @@ def update_cell_shape_plots(trigger, n_clicks,
         if cells_to_be_deleted is None:
             print("no cells selected for deletion, raising PreventUpdate")
             raise PreventUpdate
-        print("deleting frames from figure")
         figure_settings = cell_shape_plot["props"]["figure"]
-        updated_figure_settings = update_cell_outlines(figure_settings, cells_to_be_deleted)
+        updated_figure = update_cell_outlines(figure_settings, cells_to_be_deleted)
         print("Pushing an update to the figures")
+        # TODO: the updating of the graph doesn't seem to work... FIX THIS!
         return [dcc.Graph(id="cell_outline_graph",
-                          figure=go.Figure(updated_figure_settings))
+                          figure=updated_figure)
                 ]
     else:
         print("update_cell_shape_plots was triggered by an unknown, unexpected trigger. raising PreventUpdate")

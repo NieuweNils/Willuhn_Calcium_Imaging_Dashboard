@@ -472,10 +472,6 @@ double_cell_selector = html.Div([
                 html.Div([
                     html.Div(id="cell-shape-plot-1",
                              className="col-4"),
-                    # html.Div([
-                    #     dcc.Graph(id="cell-shape-plot-2"),
-                    # ], className="col-4"
-                    # ),
                     html.Div([
                         html.Div(id="drop-down-delete-placeholder"),
                         html.Div(id="delete-button-placeholder"),
