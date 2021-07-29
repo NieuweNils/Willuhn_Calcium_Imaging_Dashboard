@@ -167,6 +167,8 @@ def delete_neighbours(df, delete_list):
     df = df.dropna(how="all")
     # shift all the values to the left that were next to NaN values
     df = df.apply(lambda row: shift_away_nans(row), axis=1)
+    # drop all cols that are completely empty
+    df = df.dropna(how="all", axis=1)
     return df
 
 

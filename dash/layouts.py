@@ -452,7 +452,7 @@ double_cell_selector = html.Div([
                 ],
                     className="col-4",
                 ),
-                html.Div(id="empty-column-placeholder",
+                html.Div(id="distance-and-correlation-placeholder",
                          className="col-4"),
                 html.Div(id="download-data-placeholder",
                          className="col-4")
@@ -464,6 +464,8 @@ double_cell_selector = html.Div([
 
                 html.Div([
                     html.Div(id="neighbour-table",
+                             className="col-4"),
+                    html.Div(id="correlation-plot",
                              className="col-4"),
                 ], className="row"
                 ),

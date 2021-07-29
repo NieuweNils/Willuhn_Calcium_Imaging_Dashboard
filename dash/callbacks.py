@@ -19,7 +19,7 @@ import plotly.graph_objs as go
 from app import app
 from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours, \
     delete_locations, delete_traces, delete_neighbours, merge_locations, merge_traces
-from figures import cell_outlines, update_cell_outlines, line_chart
+from figures import cell_outlines, update_cell_outlines, line_chart, correlation_plot
 from formatting import colours, font_family, upload_button_style
 
 
@@ -211,6 +211,19 @@ def update_neighbour_table(nb_upload, timestamp, nb_update):
                                     "textAlign": "center",
                                 }
                                 )
+
+
+@app.callback(
+    Output("correlation-plot", "children"),
+    Input("fluorescence_traces_intermediate", "data"),
+    prevent_inital_call=True,
+)
+def update_correlation_plot(traces):
+    if traces is not None:
+        figure = correlation_plot(traces)
+        return dcc.Graph(figure=figure)
+    else:
+        raise PreventUpdate
 
 
 # TODO: change this to make use of the rows of neighbouring cells

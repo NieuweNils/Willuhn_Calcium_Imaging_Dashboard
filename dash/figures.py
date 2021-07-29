@@ -378,39 +378,15 @@ def cell_outlines_double_cells(locations_df, neighbours_df, metadata, layout_bas
 
 
 def correlation_plot(fluorescence_traces):
-    correlation_matrix = np.corrcoef(fluorescence_traces)
+    trace_matrix = np.array([value for value in fluorescence_traces.values()])
+    correlation_matrix = np.corrcoef(trace_matrix)
     correlation_matrix = np.absolute(correlation_matrix)
     correlation_df = pd.DataFrame(correlation_matrix)
     # Discard the lower left triangle as all correlation values will end up as doubles (includes the diagonal of 1.0's)
     correlation_df = correlation_df.where(np.triu(np.ones(correlation_matrix.shape), k=1).astype(np.bool))
     highly_correlating_neurons = correlation_df[correlation_df > 0.6]
-    highly_correlating_neurons.dropna(how='all')
-    #
-    # return dash_table.DataTable(id='neurons-close-together-datatable',
-    #                      columns=[table_columns],
-    #                      data=table_data,
-    #                      fixed_rows={'headers': True},
-    #                      style_header={
-    #                          'backgroundColor': 'transparent',
-    #                          'fontFamily': font_family,
-    #                          'font-size': '1rem',
-    #                          'color': colours['light-green'],
-    #                          'border': '0px transparent',
-    #                          'textAlign': 'center',
-    #                      },
-    #                      style_table={
-    #                          'height': '300px',
-    #                          'width': '600px',
-    #                          'marginLeft': '5%',
-    #                          'marginRight': 'auto',
-    #                          'overflowY': 'auto',
-    #                      },
-    #                      style_cell={
-    #                          'backgroundColor': colours['dark-green'],
-    #                          'color': colours['white'],
-    #                          'border': '0px transparent',
-    #                          'textAlign': 'center',
-    #                      }
+    highly_correlating_neurons = highly_correlating_neurons.dropna(how='all').dropna(how='all', axis=1)
+
     figure = go.Figure(data=[go.Heatmap(z=highly_correlating_neurons)])
 
     return figure
