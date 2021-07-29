@@ -496,6 +496,7 @@ double_cell_selector = html.Div([
                 dcc.Store(id="metadata"),
                 dcc.Store(id="neighbours"),
                 dcc.Store(id="neighbours_intermediate"),
+                dcc.Store(id="list_of_cells"),
                 dcc.Store(id="trigger-cell-shape-plot"),
             ])
 

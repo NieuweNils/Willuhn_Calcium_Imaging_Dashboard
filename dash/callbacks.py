@@ -105,7 +105,7 @@ def parse_data(contents, filename):
                 io.BytesIO(decoded)
             )["results"]
             locations = data_after_cnmf_e["A"][0][0].todense()
-            fluorescence_traces = np.array(data_after_cnmf_e["C"][0][0])
+            fluorescence_traces = np.array(data_after_cnmf_e["C_raw"][0][0])
             background_fluorescence = np.array(data_after_cnmf_e["Cn"][0][0])
             options = retrieve_metadata(data_after_cnmf_e)
     except Exception as e:
@@ -118,6 +118,7 @@ def parse_data(contents, filename):
                Output("fluorescence_traces_intermediate", "data"),
                Output("background_fluorescence", "data"),
                Output("metadata", "data"),
+               Output("list_of_cells", "data"),
                Output("neighbours_intermediate", "data"),
                ],
               [Input("upload-data", "contents")],
@@ -142,17 +143,21 @@ def upload_data(list_of_contents, list_of_names):
         mean_locations = get_mean_locations(locations_df, metadata)
         neurons_closest_together = shortest_distances(mean_locations)
         neighbour_df = a_neurons_neighbours(neurons_closest_together)
+        list_of_cells = list(range(len(fluorescence_traces)))
 
         duration = time.time() - start_time
         print(f"transforming took {duration}s")
 
+        # NB!!!!! Do not change traces to a list that does not track the cell number associated with each of the traces
+        # (Or the line chart stops working once cells are deleted & merged (indices will change upon del/merge)
         return [locations_df.to_json(),
                 fluorescence_traces,
                 background_fluorescence,
                 metadata,
+                list_of_cells,
                 neighbour_df.to_json(),
                 ]
-    return [None, None, None, None, None]
+    return [None, None, None, None, None, None]
 
 
 @app.callback(Output("neighbour-table", "children"),
@@ -216,27 +221,40 @@ def update_neighbour_table(nb_upload, timestamp, nb_update):
      Input("neighbours", "data")],
     prevent_initial_call=True,
 )
-def create_drop_downs(uploaded_data, cached_data):
+def update_drop_downs_neighbours(uploaded_data, cached_data):
     if cached_data is None:
         if uploaded_data is not None:
             neighbours = uploaded_data
     else:
         neighbours = cached_data
-    print("create_drop_downs called ")
+    print("update_drop_downs called ")
     start_time = time.time()
     neighbour_df = pd.read_json(neighbours)
 
     duration = time.time() - start_time
     print(f"the data part above took {duration}s")
-    drop_down_list_cells = get_drop_down_list(neighbour_df)
-    return [dcc.Dropdown(id="drop-down-delete", options=drop_down_list_cells, multi=True,
+    drop_down_list_neighbours = get_drop_down_list(neighbour_df)
+    return [dcc.Dropdown(id="drop-down-delete", options=drop_down_list_neighbours, multi=True,
                          placeholder="Select cells to delete"),
-            dcc.Dropdown(id="drop-down-merge", options=drop_down_list_cells, multi=True,
+            dcc.Dropdown(id="drop-down-merge", options=drop_down_list_neighbours, multi=True,
                          placeholder="Select cells to merge"),
-            dcc.Dropdown(id="drop-down-traces", options=drop_down_list_cells, multi=True,
+            dcc.Dropdown(id="drop-down-traces", options=drop_down_list_neighbours, multi=True,
                          placeholder="Select cells to show their traces"),
             {"value": True},  # hack to trigger cell shape plot the first time
             ]
+#
+#
+# @app.callback(
+#     Output("drop-down-traces-placeholder", "children"),
+#     Input("list_of_cells", "data"),
+#     prevent_initial_call=True
+# )
+# def update_drop_down_all_cells(list_of_cells):
+#     drop_down_all_cells = []
+#     for cell in list_of_cells:
+#         drop_down_all_cells.append({"label": f"cell {int(cell)}", "value": int(cell)})
+#     return dcc.Dropdown(id="drop-down-traces", options=drop_down_all_cells, multi=True,
+#                         placeholder="Select cells to show their traces")
 
 
 @app.callback(
@@ -355,7 +373,7 @@ def update_cell_shape_plots(trigger, n_clicks,
     prevent_initial_call=True
 )
 def update_trace_plot(cells_to_display, traces):
-    if cells_to_display is None or traces is None:
+    if not cells_to_display or traces is None:
         raise PreventUpdate
     print("update_trace_plot called")
     trace_plot = line_chart(cells_to_display, traces)
