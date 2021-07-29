@@ -144,6 +144,9 @@ def upload_data(list_of_contents, list_of_names):
         neurons_closest_together = shortest_distances(mean_locations)
         neighbour_df = a_neurons_neighbours(neurons_closest_together)
         list_of_cells = list(range(len(fluorescence_traces)))
+        trace_dict = {}
+        for cell in list(range(len(fluorescence_traces))):
+            trace_dict[cell] = fluorescence_traces[cell]
 
         duration = time.time() - start_time
         print(f"transforming took {duration}s")
@@ -151,7 +154,7 @@ def upload_data(list_of_contents, list_of_names):
         # NB!!!!! Do not change traces to a list that does not track the cell number associated with each of the traces
         # (Or the line chart stops working once cells are deleted & merged (indices will change upon del/merge)
         return [locations_df.to_json(),
-                fluorescence_traces,
+                trace_dict,
                 background_fluorescence,
                 metadata,
                 list_of_cells,
@@ -309,7 +312,7 @@ def update_data_stores(n_clicks_del, n_clicks_merge,
             locations_df = pd.read_json(cached_loc)
             neighbours_df = pd.read_json(cached_nb)
             updated_locations = delete_locations(df=locations_df, delete_list=cells_to_be_deleted).to_json()
-            updated_traces = delete_traces(array=cached_traces, delete_list=cells_to_be_deleted)
+            updated_traces = delete_traces(trace_dict=cached_traces, delete_list=cells_to_be_deleted)
             updated_neighbours = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_deleted).to_json()
             return [updated_locations, updated_traces, updated_neighbours]
         else:

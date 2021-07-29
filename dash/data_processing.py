@@ -152,10 +152,11 @@ def delete_locations(df, delete_list):
     return df
 
 
-def delete_traces(array, delete_list):
+def delete_traces(trace_dict, delete_list):
     print("deleting cells from traces")
-    updated_array = np.delete(array, delete_list, axis=0)  # traces are stored row based
-    return updated_array
+    for cell in delete_list:
+        trace_dict.pop(str(cell), None)
+    return trace_dict
 
 
 def delete_neighbours(df, delete_list):
@@ -197,10 +198,13 @@ def merge_locations(locations, merge_list):
 def merge_traces(traces, merge_list):
     print("merging cell traces")
     # take out the traces that you are merging
-    trace_list = [traces[cell] for cell in merge_list]
-    updated_traces = np.delete(traces, merge_list[1:], axis=0)  # keep the first one (that one will store the merge)
+    trace_list = [traces[str(cell)] for cell in merge_list]
+    for cell in merge_list[1:]:   # keep the first one (that one will store the merge)
+        traces.pop(cell, None)
+    # updated_traces = np.delete(traces, merge_list[1:], axis=0)
+
     # calculate the average trace to replace the ones you just deleted
     average_trace = np.mean(np.array(trace_list), axis=0)
     # add average trace to the traces (use the first of the list to store it)
-    updated_traces[merge_list[0]] = average_trace
-    return updated_traces
+    traces[str(merge_list[0])] = average_trace
+    return traces

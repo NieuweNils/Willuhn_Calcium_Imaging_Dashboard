@@ -424,20 +424,22 @@ def line_chart(cells_to_display, traces, layout_base=standard_layout):
      objects)
     """
     figure = go.Figure()
-    stop = len(traces[0])
-    x_axis = list(range(0, stop))
-    number_of_cells = len(traces)
+    stop = len(traces[str(cells_to_display[0])])  # stop == the amount of time points in the first dictionary entry
+    step = int(stop / 10000)  # reduce the data load a bit, use max 10,000 time points
+    x_axis = list(range(0, stop, step))
+    cells = traces.keys()
     cells_to_display = sorted(cells_to_display)
 
-    traces_to_display = [traces[index] for index in list(range(number_of_cells)) if index in cells_to_display]
-    for index, trace in enumerate(traces_to_display):
-        figure.add_trace(go.Scatter(x=x_axis, y=trace[0:stop], name="cell " + str(cells_to_display[index]), mode="lines"))
+    traces_to_display = [(cell, traces[cell]) for cell in cells if int(cell) in cells_to_display]
+    for (cell, trace) in traces_to_display:
+        figure.add_trace(go.Scatter(x=x_axis, y=trace[0:stop:step], name="cell " + str(cell), mode="lines"))
 
     layout = copy(layout_base)  # Copy by value, NOT by reference
     layout["xaxis"]["title"] = "time (ms?)"
     layout["xaxis"]["range"] = [0, x_axis[-1]]
     layout["yaxis"]["title"] = "intensity of signal (C_raw)"
-    layout["yaxis"]["range"] = [np.min([scatter["y"] for scatter in figure["data"]]), np.max([scatter["y"] for scatter in figure["data"]])]
+    layout["yaxis"]["range"] = [np.min([scatter["y"] for scatter in figure["data"]]),
+                                np.max([scatter["y"] for scatter in figure["data"]])]
     layout["autosize"] = False
 
     figure.layout = layout
