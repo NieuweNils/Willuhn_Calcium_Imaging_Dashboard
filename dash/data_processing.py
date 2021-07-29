@@ -182,3 +182,25 @@ def shift_away_nans(row):
             if not passed_value:
                 passed_value = True
     return row
+
+
+def merge_locations(locations, merge_list):
+    print("merging locations")
+    # take out the locations of the cells that you are merging
+    updated_locations = locations.drop(merge_list[1:], axis=1)  # pixel locations are column based (don't remember why)
+    # update first cell in list with updated locations
+    merged_locations = locations[merge_list].max(axis=1)  # make a pixel 2 that is 2 in at least 1 cell
+    updated_locations[merge_list[0]] = merged_locations
+    return updated_locations
+
+
+def merge_traces(traces, merge_list):
+    print("merging cell traces")
+    # take out the traces that you are merging
+    trace_list = [traces[cell] for cell in merge_list]
+    updated_traces = np.delete(traces, merge_list[1:], axis=0)  # keep the first one (that one will store the merge)
+    # calculate the average trace to replace the ones you just deleted
+    average_trace = np.mean(np.array(trace_list), axis=0)
+    # add average trace to the traces (use the first of the list to store it)
+    updated_traces[merge_list[0]] = average_trace
+    return updated_traces

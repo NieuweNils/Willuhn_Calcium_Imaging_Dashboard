@@ -437,7 +437,7 @@ def line_chart(cells_to_display, traces, layout_base=standard_layout):
     layout["xaxis"]["title"] = "time (ms?)"
     layout["xaxis"]["range"] = [0, x_axis[-1]]
     layout["yaxis"]["title"] = "intensity of signal (C_raw)"
-    layout["yaxis"]["range"] = [0, np.max([scatter["y"] for scatter in figure["data"]])]
+    layout["yaxis"]["range"] = [np.min([scatter["y"] for scatter in figure["data"]]), np.max([scatter["y"] for scatter in figure["data"]])]
     layout["autosize"] = False
 
     figure.layout = layout

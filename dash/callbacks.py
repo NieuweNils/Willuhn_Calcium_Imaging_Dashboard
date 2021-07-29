@@ -18,7 +18,7 @@ import plotly.graph_objs as go
 
 from app import app
 from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours, \
-    delete_locations, delete_traces, delete_neighbours
+    delete_locations, delete_traces, delete_neighbours, merge_locations, merge_traces
 from figures import cell_outlines, update_cell_outlines, line_chart
 from formatting import colours, font_family, upload_button_style
 
@@ -274,22 +274,24 @@ def create_delete_and_merge_buttons(timestamp):
         Output("fluorescence_traces", "data"),
         Output("neighbours", "data")],
     [
-        Input("delete-button", "n_clicks")],
+        Input("delete-button", "n_clicks"),
+        Input("merge-button", "n_clicks")],
     [
         State("locations_intermediate", "data"),
         State("fluorescence_traces_intermediate", "data"),
         State("neighbours_intermediate", "data"),
 
         State("drop-down-delete", "value"),
+        State("drop-down-merge", "value"),
 
         State("locations", "data"),
         State("fluorescence_traces", "data"),
         State("neighbours", "data")],
     prevent_initial_call=True
 )
-def update_data_stores(n_clicks,
+def update_data_stores(n_clicks_del, n_clicks_merge,
                        uploaded_loc, uploaded_traces, uploaded_nb,
-                       cells_to_be_deleted,
+                       cells_to_be_deleted, cells_to_be_merged,
                        cached_loc, cached_traces, cached_nb):
     print("update_data_stores called")
     # if there is no data in the Stores, use the uploaded data
@@ -297,21 +299,36 @@ def update_data_stores(n_clicks,
         (cached_loc, cached_traces, cached_nb) = uploaded_loc, uploaded_traces, uploaded_nb
 
     # there is already data in cache, and no one clicked a button:
-    if n_clicks is None:
-        print("no delete button clicks, raising PreventUpdate.")
-        raise PreventUpdate
-
-    # delete the cells
-    if cells_to_be_deleted:
-        locations_df = pd.read_json(cached_loc)
-        neighbours_df = pd.read_json(cached_nb)
-        updated_locations = delete_locations(df=locations_df, delete_list=cells_to_be_deleted).to_json()
-        updated_traces = delete_traces(array=cached_traces, delete_list=cells_to_be_deleted)
-        updated_neighbours = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_deleted).to_json()
-        return [updated_locations, updated_traces, updated_neighbours]
-    else:
-        print("no cells to be deleted, raising PreventUpdate")
-        raise PreventUpdate
+    ctx = callback_context
+    if ctx.triggered[0]["prop_id"].split(".")[0] == "delete-button":
+        if n_clicks_del is None:
+            print("no button clicks, raising PreventUpdate.")
+            raise PreventUpdate
+        # delete the cells
+        if cells_to_be_deleted:
+            locations_df = pd.read_json(cached_loc)
+            neighbours_df = pd.read_json(cached_nb)
+            updated_locations = delete_locations(df=locations_df, delete_list=cells_to_be_deleted).to_json()
+            updated_traces = delete_traces(array=cached_traces, delete_list=cells_to_be_deleted)
+            updated_neighbours = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_deleted).to_json()
+            return [updated_locations, updated_traces, updated_neighbours]
+        else:
+            print("no cells to be deleted, raising PreventUpdate")
+            raise PreventUpdate
+    if ctx.triggered[0]["prop_id"].split(".")[0] == "merge-button":
+        if n_clicks_merge is None:
+            print("no button clicks, raising PreventUpdate.")
+            raise PreventUpdate
+        if cells_to_be_merged:
+            locations_df = pd.read_json(cached_loc)
+            neighbours_df = pd.read_json(cached_nb)
+            updated_locations = merge_locations(locations=locations_df, merge_list=cells_to_be_merged).to_json()
+            updated_traces = merge_traces(traces=cached_traces, merge_list=cells_to_be_merged)
+            updated_neighbours = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_merged[1:]).to_json()
+            return [updated_locations, updated_traces, updated_neighbours]
+        else:
+            print("no cells to be merged, raising PreventUpdate")
+            raise PreventUpdate
 
 
 # TODO: find out why this is not always triggered (and I think never by locations_intermediate)
@@ -370,11 +387,16 @@ def update_cell_shape_plots(trigger, n_clicks,
     Output("trace-plot", "figure"),
     Input("drop-down-traces", "value"),
     State("fluorescence_traces_intermediate", "data"),
+    State("fluorescence_traces", "data"),
     prevent_initial_call=True
 )
-def update_trace_plot(cells_to_display, traces):
-    if not cells_to_display or traces is None:
+def update_trace_plot(cells_to_display, traces_uploaded, traces_cached):
+    if not cells_to_display or traces_uploaded is None:
         raise PreventUpdate
+    if not traces_cached:
+        traces = traces_uploaded
+    else:
+        traces = traces_cached
     print("update_trace_plot called")
     trace_plot = line_chart(cells_to_display, traces)
     return trace_plot
