@@ -427,12 +427,13 @@ def line_chart(cells_to_display, traces, layout_base=standard_layout):
     stop = len(traces[0])
     x_axis = list(range(0, stop))
     number_of_cells = len(traces)
+    cells_to_display = sorted(cells_to_display)
     # TODO: Track the cell number of each of the traces
     # TODO: (Otherwise I will be in trouble once cells are deleted & merged,
     # TODO: because the indexes will not be the same after that)
     traces_to_display = [traces[index] for index in list(range(number_of_cells)) if index in cells_to_display]
-    for trace in traces_to_display:
-        figure.add_trace(go.Scatter(x=x_axis, y=trace[0:stop], mode="lines"))
+    for index, trace in enumerate(traces_to_display):
+        figure.add_trace(go.Scatter(x=x_axis, y=trace[0:stop], name="cell " + str(cells_to_display[index]), mode="lines"))
 
     layout = copy(layout_base)  # Copy by value, NOT by reference
     layout["xaxis"]["title"] = "time (ms)"
