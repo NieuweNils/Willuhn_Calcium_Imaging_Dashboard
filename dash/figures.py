@@ -377,17 +377,43 @@ def cell_outlines_double_cells(locations_df, neighbours_df, metadata, layout_bas
     return figure
 
 
-def correlation_plot(fluorescence_traces):
+def correlation_plot(fluorescence_traces, neurons_close_to_another, min_correlation=0.2, layout_base=standard_layout):
+    # Calculate correlations
     trace_matrix = np.array([value for value in fluorescence_traces.values()])
+    indices = [int(key) for key in fluorescence_traces.keys()]
     correlation_matrix = np.corrcoef(trace_matrix)
     correlation_matrix = np.absolute(correlation_matrix)
-    correlation_df = pd.DataFrame(correlation_matrix)
+    correlation_df = pd.DataFrame(correlation_matrix,
+                                  columns=indices,
+                                  index=indices)
     # Discard the lower left triangle as all correlation values will end up as doubles (includes the diagonal of 1.0's)
     correlation_df = correlation_df.where(np.triu(np.ones(correlation_matrix.shape), k=1).astype(np.bool))
-    highly_correlating_neurons = correlation_df[correlation_df > 0.6]
-    highly_correlating_neurons = highly_correlating_neurons.dropna(how='all').dropna(how='all', axis=1)
+    # Discard correlation values below threshold
+    highly_correlating_neurons = correlation_df[correlation_df > min_correlation]
+    # Discard non-neighbours
+    cells_to_select_row = set(neurons_close_to_another["neuron_1"])
+    cells_to_select_col = set(neurons_close_to_another["neuron_2"])
+    correlating_neighbours = highly_correlating_neurons.loc[cells_to_select_row][cells_to_select_col]
+    # TODO: add bit here that discards correlations of neurons that are not pairs in neurons_close_to_another_df
+    # Assemble the figure
+    values = correlating_neighbours.values
+    values = values[~np.isnan(correlating_neighbours)]
+    middle = np.average(values)
+    maximum = np.max(values)
+    cols = [f"cell {column}" for column in correlating_neighbours.columns]
+    rows = [f"cell {index}" for index in correlating_neighbours.index]
+    layout = copy(layout_base)
+    layout["title"] = "Correlating neighbours"
 
-    figure = go.Figure(data=[go.Heatmap(z=highly_correlating_neurons)])
+    figure = go.Figure(data=[go.Heatmap(z=correlating_neighbours,
+                                        x=cols,
+                                        y=rows,
+                                        zmax=maximum,
+                                        zmid=middle,
+                                        zmin=0,
+                                        colorscale="ice"
+                                        )],
+                       layout=layout)
 
     return figure
 

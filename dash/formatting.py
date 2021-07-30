@@ -78,13 +78,12 @@ x_axis = {
     'showgrid': False,
     'linecolor': colours['light-grey'],
     'color': colours['white'],
-    'tickangle': 315,
     'titlefont': {
-        'size': 12,
+        'size': 15,
         'color': colours['white'],
     },
     'tickfont': {
-        'size': 11,
+        'size': 15,
         'color': colours['white'],
     },
     'zeroline': False,
@@ -97,11 +96,11 @@ y_axis = {
     'gridcolor': colours['white'],
     'linecolor': colours['white'],
     'titlefont': {
-        'size': 12,
+        'size': 15,
         'color': colours['white'],
     },
     'tickfont': {
-        'size': 11,
+        'size': 15,
         'color': colours['white'],
     },
     'zeroline': False,
@@ -115,7 +114,7 @@ legend = {
     'y': 1.01,
     'xanchor': 'right',
     'x': 1.05,
-    'font': {'size': 9,
+    'font': {'size': 15,
              'color': colours['white'],
              }
 }  # Legend will be on the top right, above the graph, horizontally

@@ -172,6 +172,14 @@ def delete_neighbours(df, delete_list):
     return df
 
 
+def delete_close_neurons(df, delete_list):
+    print("deleting cells from neurons_close_to_another_df")
+    df = df[~df["neuron_1"].isin(delete_list)]
+    df = df[~df["neuron_2"].isin(delete_list)]
+
+    return df
+
+
 def shift_away_nans(row):
     passed_nan = False
     passed_value = False
@@ -202,7 +210,7 @@ def merge_traces(traces, merge_list):
     # take out the traces that you are merging
     trace_list = [traces[str(cell)] for cell in merge_list]
     for cell in merge_list[1:]:   # keep the first one (that one will store the merge)
-        traces.pop(cell, None)
+        traces.pop(str(cell), None)
     # updated_traces = np.delete(traces, merge_list[1:], axis=0)
 
     # calculate the average trace to replace the ones you just deleted

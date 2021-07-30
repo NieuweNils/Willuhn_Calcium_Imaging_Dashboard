@@ -18,7 +18,7 @@ import plotly.graph_objs as go
 
 from app import app
 from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours, \
-    delete_locations, delete_traces, delete_neighbours, merge_locations, merge_traces
+    delete_locations, delete_traces, delete_neighbours, delete_close_neurons, merge_locations, merge_traces
 from figures import cell_outlines, update_cell_outlines, line_chart, correlation_plot
 from formatting import colours, font_family, upload_button_style
 
@@ -119,6 +119,7 @@ def parse_data(contents, filename):
                Output("background_fluorescence", "data"),
                Output("metadata", "data"),
                Output("list_of_cells", "data"),
+               Output("neurons_close_to_another_intermediate", "data"),
                Output("neighbours_intermediate", "data"),
                ],
               [Input("upload-data", "contents")],
@@ -141,8 +142,8 @@ def upload_data(list_of_contents, list_of_names):
 
         locations_df = pd.DataFrame(locations)
         mean_locations = get_mean_locations(locations_df, metadata)
-        neurons_closest_together = shortest_distances(mean_locations)
-        neighbour_df = a_neurons_neighbours(neurons_closest_together)
+        neurons_closest_together_df = shortest_distances(mean_locations)
+        neighbour_df = a_neurons_neighbours(neurons_closest_together_df)
         list_of_cells = list(range(len(fluorescence_traces)))
         trace_dict = {}
         for cell in list(range(len(fluorescence_traces))):
@@ -158,9 +159,10 @@ def upload_data(list_of_contents, list_of_names):
                 background_fluorescence,
                 metadata,
                 list_of_cells,
+                neurons_closest_together_df.to_json(),
                 neighbour_df.to_json(),
                 ]
-    return [None, None, None, None, None, None]
+    return [None, None, None, None, None, None, None]
 
 
 @app.callback(Output("neighbour-table", "children"),
@@ -198,8 +200,8 @@ def update_neighbour_table(nb_upload, timestamp, nb_update):
                                     "textAlign": "center",
                                 },
                                 style_table={
-                                    "height": "300px",
-                                    "width": "600px",
+                                    "height": "100%",
+                                    "width": "100%",
                                     "marginLeft": "0%",
                                     "marginRight": "auto",
                                     "overflowY": "auto",
@@ -215,13 +217,29 @@ def update_neighbour_table(nb_upload, timestamp, nb_update):
 
 @app.callback(
     Output("correlation-plot", "children"),
-    Input("fluorescence_traces_intermediate", "data"),
+    [Input("fluorescence_traces_intermediate", "data"),
+     Input("fluorescence_traces", "data")],
+    [State("neurons_close_to_another_intermediate", "data"),
+     State("neurons_close_to_another", "data")],
     prevent_inital_call=True,
 )
-def update_correlation_plot(traces):
-    if traces is not None:
-        figure = correlation_plot(traces)
-        return dcc.Graph(figure=figure)
+def update_correlation_plot(traces_uploaded, traces_cached, closeness_uploaded, closeness_cached):
+    if traces_cached is None:
+        traces = traces_uploaded
+    else:
+        traces = traces_cached
+    if closeness_cached is None:
+        neurons_close_to_another = closeness_uploaded
+    else:
+        neurons_close_to_another = closeness_cached
+
+    if traces is not None and neurons_close_to_another is not None:
+        neurons_close_to_another_df = pd.read_json(neurons_close_to_another)
+        figure = correlation_plot(traces, neurons_close_to_another_df)
+        return dcc.Graph(figure=figure,
+                         style={'width': '100%',
+                                'height': '100%',
+                                'margin': 'auto'})
     else:
         raise PreventUpdate
 
@@ -288,7 +306,8 @@ def create_delete_and_merge_buttons(timestamp):
     [
         Output("locations", "data"),
         Output("fluorescence_traces", "data"),
-        Output("neighbours", "data")],
+        Output("neighbours", "data"),
+        Output("neurons_close_to_another", "data")],
     [
         Input("delete-button", "n_clicks"),
         Input("merge-button", "n_clicks")],
@@ -296,23 +315,25 @@ def create_delete_and_merge_buttons(timestamp):
         State("locations_intermediate", "data"),
         State("fluorescence_traces_intermediate", "data"),
         State("neighbours_intermediate", "data"),
+        State("neurons_close_to_another_intermediate", "data"),
 
         State("drop-down-delete", "value"),
         State("drop-down-merge", "value"),
 
         State("locations", "data"),
         State("fluorescence_traces", "data"),
-        State("neighbours", "data")],
+        State("neighbours", "data"),
+        State("neurons_close_to_another", "data")],
     prevent_initial_call=True
 )
 def update_data_stores(n_clicks_del, n_clicks_merge,
-                       uploaded_loc, uploaded_traces, uploaded_nb,
+                       uploaded_loc, uploaded_traces, uploaded_nb, uploaded_closeness,
                        cells_to_be_deleted, cells_to_be_merged,
-                       cached_loc, cached_traces, cached_nb):
+                       cached_loc, cached_traces, cached_nb, cached_closeness):
     print("update_data_stores called")
     # if there is no data in the Stores, use the uploaded data
-    if cached_loc is None or cached_traces is None or cached_nb is None:
-        (cached_loc, cached_traces, cached_nb) = uploaded_loc, uploaded_traces, uploaded_nb
+    if cached_loc is None or cached_traces is None or cached_nb is None or cached_closeness is None:
+        (cached_loc, cached_traces, cached_nb, cached_closeness) = uploaded_loc, uploaded_traces, uploaded_nb, uploaded_closeness
 
     # there is already data in cache, and no one clicked a button:
     ctx = callback_context
@@ -324,10 +345,13 @@ def update_data_stores(n_clicks_del, n_clicks_merge,
         if cells_to_be_deleted:
             locations_df = pd.read_json(cached_loc)
             neighbours_df = pd.read_json(cached_nb)
+            neurons_close_to_another_df = pd.read_json(cached_closeness)
             updated_locations = delete_locations(df=locations_df, delete_list=cells_to_be_deleted).to_json()
             updated_traces = delete_traces(trace_dict=cached_traces, delete_list=cells_to_be_deleted)
             updated_neighbours = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_deleted).to_json()
-            return [updated_locations, updated_traces, updated_neighbours]
+            updated_neuron_closeness = delete_close_neurons(df=neurons_close_to_another_df,
+                                                            delete_list=cells_to_be_deleted).to_json()
+            return [updated_locations, updated_traces, updated_neighbours, updated_neuron_closeness]
         else:
             print("no cells to be deleted, raising PreventUpdate")
             raise PreventUpdate
@@ -338,10 +362,13 @@ def update_data_stores(n_clicks_del, n_clicks_merge,
         if cells_to_be_merged:
             locations_df = pd.read_json(cached_loc)
             neighbours_df = pd.read_json(cached_nb)
+            neurons_close_to_another_df = pd.read_json(cached_closeness)
             updated_locations = merge_locations(locations=locations_df, merge_list=cells_to_be_merged).to_json()
             updated_traces = merge_traces(traces=cached_traces, merge_list=cells_to_be_merged)
             updated_neighbours = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_merged[1:]).to_json()
-            return [updated_locations, updated_traces, updated_neighbours]
+            updated_neuron_closeness = delete_close_neurons(df=neurons_close_to_another_df,
+                                                            delete_list=cells_to_be_merged[1:]).to_json()
+            return [updated_locations, updated_traces, updated_neighbours, updated_neuron_closeness]
         else:
             print("no cells to be merged, raising PreventUpdate")
             raise PreventUpdate

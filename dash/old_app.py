@@ -18,11 +18,11 @@ server = Flask(__name__)
 # TODO: put in separate file
 
 # For position
-data_after_CNMF_E = loadmat('../data/concat_may_NoRMCorre_results.mat')
-data_after_CNMF_E = data_after_CNMF_E['results']
+data_after_CNMF_E = loadmat(""../data/concat_may_NoRMCorre_results.mat"")
+data_after_CNMF_E = data_after_CNMF_E["results"]
 
 # For animated line plot of Fluorescence trace
-fluorescence_traces = np.array(data_after_CNMF_E['C'][0][0])
+fluorescence_traces = np.array(data_after_CNMF_E["C"][0][0])
 layout = {"title": "Neuron " + str(7)}
 trace = fluorescence_traces[7, 0:2500]
 
@@ -40,13 +40,13 @@ def animated_heatmap(data, layout={}):
     # frames = []
     # for frame in range(0, n_images, 1000):
     #     image = data[frame]
-    #     curr_frame = go.Frame(data=[go.Heatmap(z=image, colorscale='gray')])
+    #     curr_frame = go.Frame(data=[go.Heatmap(z=image, colorscale="gray")])
     #     frames.append(curr_frame)
 
     figure_settings["layout"]["xaxis"] = {"range": [0, data.shape[0]]}
     figure_settings["layout"]["yaxis"] = {"range": [0, data.shape[1]]}
 
-    figure_settings["data"] = [go.Heatmap(z=data, colorscale='gray')]
+    figure_settings["data"] = [go.Heatmap(z=data, colorscale="gray")]
     figure_settings["layout"]["updatemenus"] = play_and_pause_buttons()
     # figure_settings["frames"] = frames
     return go.Figure(figure_settings)
@@ -100,7 +100,7 @@ def animated_linechart(data, layout={}):
     return go.Figure(figure_settings)
 
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
 
 app = dash.Dash("name", external_stylesheets=external_stylesheets)
 
