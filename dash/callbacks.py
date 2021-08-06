@@ -87,11 +87,30 @@ def upload_data(list_of_contents, list_of_names):
         print("transforming the data")
         start_time = time.time()
 
+        begin = time.time()
         locations_df = pd.DataFrame(locations)
+        duration = time.time()-begin
+        print(f"locations_df = pd.DataFrame(locations) took {duration}s")
+
+        begin = time.time()
         mean_locations = get_mean_locations(locations_df, metadata)
+        duration = time.time()-begin
+        print(f"mean_locations = get_mean_locations(locations_df, metadata) took {duration}s")
+
+        begin = time.time()
         distance_df = distances(mean_locations)
+        duration = time.time()-begin
+        print(f"distance_df = distances(mean_locations) took {duration}s")
+
+        begin = time.time()
         correlation_df = correlating_neurons(fluorescence_traces)
+        duration = time.time()-begin
+        print(f"correlation_df = correlating_neurons(fluorescence_traces) took {duration}s")
+
+        begin = time.time()
         neighbour_df = a_neurons_neighbours(distance_df, correlation_df)
+        duration = time.time()-begin
+        print(f"neighbour_df = a_neurons_neighbours(distance_df, correlation_df) took {duration}s")
 
         list_of_cells = list(range(len(fluorescence_traces)))
         trace_dict = {}
@@ -141,7 +160,6 @@ def download_data(n_clicks, locations, traces, background, metadata, neighbours)
     }
     savemat("processed_data.mat", mdict=processed_data)
     return dcc.send_file("processed_data.mat")
-
 
 
 @app.callback(Output("distance-and-correlation-placeholder", "children"),
@@ -220,11 +238,11 @@ def create_delete_and_merge_buttons(timestamp):
 
 
 # TODO: split this up into several callbacks
+# TODO: change to not use cached_STH in the end
 @app.callback(
     [
         Output("locations", "data"),
         Output("fluorescence_traces", "data"),
-        Output("neighbours", "data"),
         Output("list_of_cells", "data"),
         Output("distance", "data"),
         Output("correlations", "data"),
@@ -232,41 +250,33 @@ def create_delete_and_merge_buttons(timestamp):
     [
         Input("delete-button", "n_clicks"),
         Input("merge-button", "n_clicks"),
-        Input("neighbour-criteria-button", "n_clicks"),
     ],
     [
         State("locations_intermediate", "data"),
         State("fluorescence_traces_intermediate", "data"),
-        State("neighbours_intermediate", "data"),
         State("list_of_cells_intermediate", "data"),
         State("distance_intermediate", "data"),
         State("correlations_intermediate", "data"),
 
         State("drop-down-delete", "value"),
         State("drop-down-merge", "value"),
-        State("distance_criteria", "value"),
-        State("correlation_criteria", "value"),
 
         State("locations", "data"),
         State("fluorescence_traces", "data"),
-        State("neighbours", "data"),
         State("list_of_cells", "data"),
         State("distance", "data"),
         State("correlations", "data"),
-
-        State("metadata", "data"),
     ],
     prevent_initial_call=True
 )
-def update_data_stores(n_clicks_del, n_clicks_merge, n_clicks_criteria,
-                       uploaded_loc, uploaded_traces, uploaded_nb, uploaded_cell_list, uploaded_distance, uploaded_correlations,
-                       cells_to_be_deleted, cells_to_be_merged, distance, correlation,
-                       cached_loc, cached_traces, cached_nb, cached_cell_list, cached_distance, cached_correlations,
-                       metadata):
+def update_data_stores(n_clicks_del, n_clicks_merge,
+                       uploaded_loc, uploaded_traces, uploaded_cell_list, uploaded_distance, uploaded_correlations,
+                       cells_to_be_deleted, cells_to_be_merged,
+                       cached_loc, cached_traces, cached_cell_list, cached_distance, cached_correlations):
     print("update_data_stores called")
     # if there is no data in the Stores, use the uploaded data
-    if cached_loc is None or cached_traces is None or cached_nb is None or cached_cell_list is None or cached_distance is None or cached_correlations is None:
-        (cached_loc, cached_traces, cached_nb, cached_cell_list, cached_distance, cached_correlations) = uploaded_loc, uploaded_traces, uploaded_nb, uploaded_cell_list, uploaded_distance, uploaded_correlations
+    if cached_loc is None or cached_traces is None or cached_cell_list is None or cached_distance is None or cached_correlations is None:
+        (cached_loc, cached_traces, cached_cell_list, cached_distance, cached_correlations) = uploaded_loc, uploaded_traces, uploaded_cell_list, uploaded_distance, uploaded_correlations
 
     # there is already data in cache, and no one clicked a button:
     ctx = callback_context
@@ -277,15 +287,13 @@ def update_data_stores(n_clicks_del, n_clicks_merge, n_clicks_criteria,
         # delete the cells
         if cells_to_be_deleted:
             locations_df = pd.read_json(cached_loc)
-            neighbours_df = pd.read_json(cached_nb)
             distance_df = pd.read_json(cached_distance)
             updated_locations = delete_locations(df=locations_df, delete_list=cells_to_be_deleted).to_json()
             updated_traces = delete_traces(trace_dict=cached_traces, delete_list=cells_to_be_deleted)
             updated_cell_list = list(updated_traces.keys())
-            updated_neighbours = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_deleted).to_json()
-            updated_neuron_distance = delete_neurons_distances(df=distance_df,
-                                                                delete_list=cells_to_be_deleted).to_json()
-            return [updated_locations, updated_traces, updated_neighbours, updated_cell_list, updated_neuron_distance, cached_correlations]
+            updated_distance_table = delete_neurons_distances(df=distance_df,
+                                                              delete_list=cells_to_be_deleted).to_json()
+            return [updated_locations, updated_traces, updated_cell_list, updated_distance_table, cached_correlations]
         else:
             print("no cells to be deleted, raising PreventUpdate")
             raise PreventUpdate
@@ -295,39 +303,62 @@ def update_data_stores(n_clicks_del, n_clicks_merge, n_clicks_criteria,
             raise PreventUpdate
         if cells_to_be_merged:
             locations_df = pd.read_json(cached_loc)
-            neighbours_df = pd.read_json(cached_nb)
             distance_df = pd.read_json(cached_distance)
             updated_locations = merge_locations(locations=locations_df, merge_list=cells_to_be_merged).to_json()
             updated_traces = merge_traces(traces=cached_traces, merge_list=cells_to_be_merged)
             updated_cell_list = list(updated_traces.keys())
-            updated_neighbours = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_merged[1:]).to_json()
             updated_neuron_distance = delete_neurons_distances(df=distance_df,
-                                                                delete_list=cells_to_be_merged[1:]).to_json()
-            return [updated_locations, updated_traces, updated_neighbours, updated_cell_list, updated_neuron_distance, cached_correlations]
+                                                               delete_list=cells_to_be_merged[1:]).to_json()
+            return [updated_locations, updated_traces, updated_cell_list, updated_neuron_distance, cached_correlations]
         else:
             print("no cells to be merged, raising PreventUpdate")
             raise PreventUpdate
-    if ctx.triggered[0]["prop_id"].split(".")[0] == "neighbour-criteria-button":
-        if n_clicks_criteria is None:
-            print("no button clicks, raising PreventUpdate.")
+
+
+@app.callback(
+    Output("neighbours", "data"),
+    [Input("neighbour-criteria-button", "n_clicks"),  # different criteria for defining neighbours
+     Input("distance", "modified_timestamp"),  # underlying data changed # TODO: check if this always works
+     Input("correlations", "modified_timestamp"),
+     ],
+    [State("distance", "data"),
+     State("correlations", "data"),
+     State("distance_intermediate", "data"),
+     State("correlations_intermediate", "data"),
+
+     State("distance_criteria", "value"),
+     State("correlation_criteria", "value"),
+     ],
+    prevent_initial_call=True
+)
+def update_neighbour_data(n_clicks, timestamp_dist, timestamp_cor,
+                          dist_cached, cor_cached, dist_upload, cor_upload,
+                          distance, correlation):
+    print("update_neighbour_data called")
+    beginning = time.time()
+    ctx = callback_context
+    if ctx.triggered[0]['prop_id'].split('.')[0] == "neighbour-criteria-button":
+        if n_clicks is None:
+            print("no delete button clicks, raising PreventUpdate.")
             raise PreventUpdate
-        locations_df = pd.read_json(cached_loc)
-        mean_locations = get_mean_locations(locations_df, metadata)
-        distance_df = distances(mean_locations)
-        correlation_df = pd.read_json(cached_correlations)
-        neighbour_df = a_neurons_neighbours(distance_df, correlation_df,
-                                            max_distance=distance if distance else 10,
-                                            min_correlation=float(correlation) if correlation else 0.1)
+    distance_table = dist_cached if (dist_cached is not None) else dist_upload
+    correlation_table = cor_cached if (cor_cached is not None) else cor_upload
 
-        updated_distance = distance_df.to_json()
-        updated_neighbours = neighbour_df.to_json()
-
-        return [cached_loc, cached_traces, updated_neighbours, cached_cell_list, updated_distance, cached_correlations]
+    distance_df = pd.read_json(distance_table)
+    correlation_df = pd.read_json(correlation_table)
+    neighbour_df = a_neurons_neighbours(distance_df, correlation_df,
+                                        max_distance=distance if distance else 10,
+                                        min_correlation=float(correlation) if correlation else 0.1)
+    neighbour_json = neighbour_df.to_json()
+    ending = time.time()
+    duration = ending - beginning
+    print(f"this function call took {duration}s")
+    return neighbour_json
 
 
 @app.callback(
     Output("download-data-placeholder", "children"),
-    Input("neighbours", "modified_timestamp"),
+    Input("neighbours", "modified_timestamp"),  # TODO: check if this is the right trigger
     prevent_initial_call=True,
 )
 def update_download_button(timestamp_neighbours):
@@ -442,7 +473,6 @@ def update_cell_shape_plots(trigger, n_clicks,
                             cells_to_be_deleted,
                             cell_shape_plot,
                             ):
-    beginning = time.time()
     ctx = callback_context
     if locations is not None and cell_shape_plot is None:
         print("creating figures for the first time")
@@ -455,9 +485,6 @@ def update_cell_shape_plots(trigger, n_clicks,
         cell_outline_figure = cell_outlines(locations_df, metadata, background=background_fluorescence)
         duration = time.time() - start_time
         print(f"that figure took {duration}s to make")
-        ending = time.time()
-        duration = ending - beginning
-        print(f"this function call took {duration}s")
         return [dcc.Graph(id="cell_outline_graph",
                           figure=cell_outline_figure),
                 ]
