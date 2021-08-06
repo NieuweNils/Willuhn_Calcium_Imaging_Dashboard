@@ -24,7 +24,7 @@ def display_page(pathname):
     elif pathname == "/page_3":
         return page_3
     else:
-        return session_overview  # This is the "home page"
+        return double_cell_selector  # This is the "home page"
 
 
 if __name__ == "__main__":

@@ -13,13 +13,12 @@ from dash import callback_context
 from dash.dependencies import Output, Input, State
 from dash.exceptions import PreventUpdate
 from scipy.io import loadmat, savemat
-import plotly.graph_objs as go
 
 
 from app import app
-from data_processing import retrieve_metadata, get_mean_locations, shortest_distances, a_neurons_neighbours, \
-    delete_locations, delete_traces, delete_neighbours, delete_close_neurons, merge_locations, merge_traces
-from figures import cell_outlines, update_cell_outlines, line_chart, correlation_plot
+from data_processing import retrieve_metadata, get_mean_locations, distances, correlating_neurons, a_neurons_neighbours, \
+    delete_locations, delete_traces, delete_neighbours, delete_neurons_distances, merge_locations, merge_traces
+from figures import cell_outlines, line_chart, correlation_plot
 from formatting import colours, font_family, upload_button_style
 
 
@@ -42,12 +41,10 @@ def play_video(n_clicks, playing):
 
 
 # TODO: if I store the index of the cell in the neighbour_df, it"ll be easier to merge & delete entries in the dashboard
-def get_drop_down_list(neighbours_df):
+def get_drop_down_list(list_of_cells):
     drop_down_list = []
-    for _, row in neighbours_df.iterrows():
-        for i in range(len(row)):
-            if not (row[i] is None or np.isnan(row[i])):  # NB: stupid dash changes stuff to None
-                drop_down_list.append({"label": f"cell {int(row[i])}", "value": int(row[i])})
+    for cell in list_of_cells:
+        drop_down_list.append({"label": f"cell {int(cell)}", "value": int(cell)})
     sorted_drop_down = sorted(drop_down_list, key=lambda list_entry: list_entry["value"])
     return sorted_drop_down
 
@@ -118,9 +115,11 @@ def parse_data(contents, filename):
                Output("fluorescence_traces_intermediate", "data"),
                Output("background_fluorescence", "data"),
                Output("metadata", "data"),
-               Output("list_of_cells", "data"),
-               Output("neurons_close_to_another_intermediate", "data"),
+               Output("list_of_cells_intermediate", "data"),
+               Output("distance_intermediate", "data"),
+               Output("correlations_intermediate", "data"),
                Output("neighbours_intermediate", "data"),
+               Output("startup_trigger", "data"),
                ],
               [Input("upload-data", "contents")],
               [State("upload-data", "filename")],
@@ -142,8 +141,10 @@ def upload_data(list_of_contents, list_of_names):
 
         locations_df = pd.DataFrame(locations)
         mean_locations = get_mean_locations(locations_df, metadata)
-        neurons_closest_together_df = shortest_distances(mean_locations)
-        neighbour_df = a_neurons_neighbours(neurons_closest_together_df)
+        distance_df = distances(mean_locations)
+        correlation_df = correlating_neurons(fluorescence_traces)
+        neighbour_df = a_neurons_neighbours(distance_df, correlation_df)
+
         list_of_cells = list(range(len(fluorescence_traces)))
         trace_dict = {}
         for cell in list(range(len(fluorescence_traces))):
@@ -159,10 +160,35 @@ def upload_data(list_of_contents, list_of_names):
                 background_fluorescence,
                 metadata,
                 list_of_cells,
-                neurons_closest_together_df.to_json(),
+                distance_df.to_json(),
+                correlation_df.to_json(),
                 neighbour_df.to_json(),
+                True,
                 ]
-    return [None, None, None, None, None, None, None]
+    return [None, None, None, None, None, None, None, None]
+
+
+@app.callback(Output("distance-and-correlation-placeholder", "children"),
+              Input("startup_trigger", "data"),
+              )
+def create_customization_inputs(trigger):
+    if trigger:
+        return html.Div([dcc.Input(id="distance_criteria",
+                                   placeholder='max distance (pixels)',
+                                   type='number',
+                                   value=''),
+                         dcc.Input(id="correlation_criteria",
+                                   placeholder='min correlation coeff',
+                                   type='number',
+                                   value='',
+                                   min=0, max = 1, step = 0.1,
+                                   ),
+                         html.Button("update neighbours",
+                                     id="neighbour-criteria-button",
+                                     style=upload_button_style
+                                     ),
+                         ]
+                        )
 
 
 @app.callback(Output("neighbour-table", "children"),
@@ -217,25 +243,28 @@ def update_neighbour_table(nb_upload, timestamp, nb_update):
 
 @app.callback(
     Output("correlation-plot", "children"),
-    [Input("fluorescence_traces_intermediate", "data"),
-     Input("fluorescence_traces", "data")],
-    [State("neurons_close_to_another_intermediate", "data"),
-     State("neurons_close_to_another", "data")],
+    [Input("distance_intermediate", "data"),
+     Input("distance", "data"),
+     Input("correlations_intermediate", "data"),
+     Input("correlations", "data"),
+     ],
+    State("list_of_cells", "data"),
     prevent_inital_call=True,
 )
-def update_correlation_plot(traces_uploaded, traces_cached, closeness_uploaded, closeness_cached):
-    if traces_cached is None:
-        traces = traces_uploaded
+def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached, cell_list):
+    if cor_cached is None:
+        correlations = cor_uploaded
     else:
-        traces = traces_cached
-    if closeness_cached is None:
-        neurons_close_to_another = closeness_uploaded
+        correlations = cor_cached
+    if dist_cached is None:
+       distances = dist_uploaded
     else:
-        neurons_close_to_another = closeness_cached
+       distances = dist_cached
 
-    if traces is not None and neurons_close_to_another is not None:
-        neurons_close_to_another_df = pd.read_json(neurons_close_to_another)
-        figure = correlation_plot(traces, neurons_close_to_another_df)
+    if correlations is not None and distances is not None:
+        distance_df = pd.read_json(distances)
+        correlation_df = pd.read_json(correlations)
+        figure = correlation_plot(cell_list, correlation_df, distance_df)
         return dcc.Graph(figure=figure,
                          style={'width': '100%',
                                 'height': '100%',
@@ -249,46 +278,31 @@ def update_correlation_plot(traces_uploaded, traces_cached, closeness_uploaded, 
     Output("drop-down-delete-placeholder", "children"),
     Output("drop-down-merge-placeholder", "children"),
     Output("drop-down-traces-placeholder", "children"),
-    Output("trigger-cell-shape-plot", "data"),
+    Output("trigger-cell-shape-plot", "data"),  # TODO: check if this is the right place to call this
 ],
-    [Input("neighbours_intermediate", "data"),
-     Input("neighbours", "data")],
+    [Input("list_of_cells_intermediate", "data"),
+     Input("list_of_cells", "data")],
     prevent_initial_call=True,
 )
-def update_drop_downs_neighbours(uploaded_data, cached_data):
+def update_drop_downs(uploaded_data, cached_data):
+    print("update_drop_downs called ")
+
     if cached_data is None:
         if uploaded_data is not None:
-            neighbours = uploaded_data
+            cells = uploaded_data
     else:
-        neighbours = cached_data
-    print("update_drop_downs called ")
-    start_time = time.time()
-    neighbour_df = pd.read_json(neighbours)
+        cells = cached_data
 
-    duration = time.time() - start_time
-    print(f"the data part above took {duration}s")
-    drop_down_list_neighbours = get_drop_down_list(neighbour_df)
-    return [dcc.Dropdown(id="drop-down-delete", options=drop_down_list_neighbours, multi=True,
+    drop_down_list = get_drop_down_list(cells)
+
+    return [dcc.Dropdown(id="drop-down-delete", options=drop_down_list, multi=True,
                          placeholder="Select cells to delete"),
-            dcc.Dropdown(id="drop-down-merge", options=drop_down_list_neighbours, multi=True,
+            dcc.Dropdown(id="drop-down-merge", options=drop_down_list, multi=True,
                          placeholder="Select cells to merge"),
-            dcc.Dropdown(id="drop-down-traces", options=drop_down_list_neighbours, multi=True,
+            dcc.Dropdown(id="drop-down-traces", options=drop_down_list, multi=True,
                          placeholder="Select cells to show their traces"),
             {"value": True},  # hack to trigger cell shape plot the first time
             ]
-#
-#
-# @app.callback(
-#     Output("drop-down-traces-placeholder", "children"),
-#     Input("list_of_cells", "data"),
-#     prevent_initial_call=True
-# )
-# def update_drop_down_all_cells(list_of_cells):
-#     drop_down_all_cells = []
-#     for cell in list_of_cells:
-#         drop_down_all_cells.append({"label": f"cell {int(cell)}", "value": int(cell)})
-#     return dcc.Dropdown(id="drop-down-traces", options=drop_down_all_cells, multi=True,
-#                         placeholder="Select cells to show their traces")
 
 
 @app.callback(
@@ -307,33 +321,48 @@ def create_delete_and_merge_buttons(timestamp):
         Output("locations", "data"),
         Output("fluorescence_traces", "data"),
         Output("neighbours", "data"),
-        Output("neurons_close_to_another", "data")],
+        Output("list_of_cells", "data"),
+        Output("distance", "data"),
+        Output("correlations", "data"),
+    ],
     [
         Input("delete-button", "n_clicks"),
-        Input("merge-button", "n_clicks")],
+        Input("merge-button", "n_clicks"),
+        Input("neighbour-criteria-button", "n_clicks"),
+    ],
     [
         State("locations_intermediate", "data"),
         State("fluorescence_traces_intermediate", "data"),
         State("neighbours_intermediate", "data"),
-        State("neurons_close_to_another_intermediate", "data"),
+        State("list_of_cells_intermediate", "data"),
+        State("distance_intermediate", "data"),
+        State("correlations_intermediate", "data"),
 
         State("drop-down-delete", "value"),
         State("drop-down-merge", "value"),
+        State("distance_criteria", "value"),
+        State("correlation_criteria", "value"),
 
         State("locations", "data"),
         State("fluorescence_traces", "data"),
         State("neighbours", "data"),
-        State("neurons_close_to_another", "data")],
+        State("list_of_cells", "data"),
+        State("distance", "data"),
+        State("correlations", "data"),
+
+        State("metadata", "data"),
+    ],
     prevent_initial_call=True
 )
-def update_data_stores(n_clicks_del, n_clicks_merge,
-                       uploaded_loc, uploaded_traces, uploaded_nb, uploaded_closeness,
-                       cells_to_be_deleted, cells_to_be_merged,
-                       cached_loc, cached_traces, cached_nb, cached_closeness):
+def update_data_stores(n_clicks_del, n_clicks_merge, n_clicks_criteria,
+                       uploaded_loc, uploaded_traces, uploaded_nb, uploaded_cell_list, uploaded_distance, uploaded_correlations,
+                       cells_to_be_deleted, cells_to_be_merged, distance, correlation,
+                       cached_loc, cached_traces, cached_nb, cached_cell_list, cached_distance, cached_correlations,
+                       metadata):
     print("update_data_stores called")
     # if there is no data in the Stores, use the uploaded data
-    if cached_loc is None or cached_traces is None or cached_nb is None or cached_closeness is None:
-        (cached_loc, cached_traces, cached_nb, cached_closeness) = uploaded_loc, uploaded_traces, uploaded_nb, uploaded_closeness
+    if cached_loc is None or cached_traces is None or cached_nb is None or cached_cell_list is None or cached_distance is None or cached_correlations is None:
+        (cached_loc, cached_traces, cached_nb, cached_cell_list, cached_distance, cached_correlations) = uploaded_loc, uploaded_traces, uploaded_nb, uploaded_cell_list, uploaded_distance, uploaded_correlations
 
     # there is already data in cache, and no one clicked a button:
     ctx = callback_context
@@ -345,13 +374,14 @@ def update_data_stores(n_clicks_del, n_clicks_merge,
         if cells_to_be_deleted:
             locations_df = pd.read_json(cached_loc)
             neighbours_df = pd.read_json(cached_nb)
-            neurons_close_to_another_df = pd.read_json(cached_closeness)
+            distance_df = pd.read_json(cached_distance)
             updated_locations = delete_locations(df=locations_df, delete_list=cells_to_be_deleted).to_json()
             updated_traces = delete_traces(trace_dict=cached_traces, delete_list=cells_to_be_deleted)
+            updated_cell_list = list(updated_traces.keys())
             updated_neighbours = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_deleted).to_json()
-            updated_neuron_closeness = delete_close_neurons(df=neurons_close_to_another_df,
-                                                            delete_list=cells_to_be_deleted).to_json()
-            return [updated_locations, updated_traces, updated_neighbours, updated_neuron_closeness]
+            updated_neuron_distance = delete_neurons_distances(df=distance_df,
+                                                                delete_list=cells_to_be_deleted).to_json()
+            return [updated_locations, updated_traces, updated_neighbours, updated_cell_list, updated_neuron_distance, cached_correlations]
         else:
             print("no cells to be deleted, raising PreventUpdate")
             raise PreventUpdate
@@ -362,16 +392,33 @@ def update_data_stores(n_clicks_del, n_clicks_merge,
         if cells_to_be_merged:
             locations_df = pd.read_json(cached_loc)
             neighbours_df = pd.read_json(cached_nb)
-            neurons_close_to_another_df = pd.read_json(cached_closeness)
+            distance_df = pd.read_json(cached_distance)
             updated_locations = merge_locations(locations=locations_df, merge_list=cells_to_be_merged).to_json()
             updated_traces = merge_traces(traces=cached_traces, merge_list=cells_to_be_merged)
+            updated_cell_list = list(updated_traces.keys())
             updated_neighbours = delete_neighbours(df=neighbours_df, delete_list=cells_to_be_merged[1:]).to_json()
-            updated_neuron_closeness = delete_close_neurons(df=neurons_close_to_another_df,
-                                                            delete_list=cells_to_be_merged[1:]).to_json()
-            return [updated_locations, updated_traces, updated_neighbours, updated_neuron_closeness]
+            updated_neuron_distance = delete_neurons_distances(df=distance_df,
+                                                                delete_list=cells_to_be_merged[1:]).to_json()
+            return [updated_locations, updated_traces, updated_neighbours, updated_cell_list, updated_neuron_distance, cached_correlations]
         else:
             print("no cells to be merged, raising PreventUpdate")
             raise PreventUpdate
+    if ctx.triggered[0]["prop_id"].split(".")[0] == "neighbour-criteria-button":
+        if n_clicks_criteria is None:
+            print("no button clicks, raising PreventUpdate.")
+            raise PreventUpdate
+        locations_df = pd.read_json(cached_loc)
+        mean_locations = get_mean_locations(locations_df, metadata)
+        distance_df = distances(mean_locations)
+        correlation_df = pd.read_json(cached_correlations)
+        neighbour_df = a_neurons_neighbours(distance_df, correlation_df,
+                                            max_distance=distance if distance else 10,
+                                            min_correlation=float(correlation) if correlation else 0.1)
+
+        updated_distance = distance_df.to_json()
+        updated_neighbours = neighbour_df.to_json()
+
+        return [cached_loc, cached_traces, updated_neighbours, cached_cell_list, updated_distance, cached_correlations]
 
 
 # TODO: find out why this is not always triggered (and I think never by locations_intermediate)
@@ -390,6 +437,7 @@ def update_cell_shape_plots(trigger, n_clicks,
                             cells_to_be_deleted,
                             cell_shape_plot,
                             ):
+    beginning = time.time()
     ctx = callback_context
     if locations is not None and cell_shape_plot is None:
         print("creating figures for the first time")
@@ -402,25 +450,28 @@ def update_cell_shape_plots(trigger, n_clicks,
         cell_outline_figure = cell_outlines(locations_df, metadata, background=background_fluorescence)
         duration = time.time() - start_time
         print(f"that figure took {duration}s to make")
-
+        ending = time.time()
+        duration = ending - beginning
+        print(f"this function call took {duration}s")
         return [dcc.Graph(id="cell_outline_graph",
                           figure=cell_outline_figure),
                 ]
 
     if ctx.triggered[0]['prop_id'].split('.')[0] == "delete-button":
-        if n_clicks is None:
-            print("no delete button clicks, raising PreventUpdate.")
-            raise PreventUpdate
-        if cells_to_be_deleted is None:
-            print("no cells selected for deletion, raising PreventUpdate")
-            raise PreventUpdate
-        figure_settings = cell_shape_plot["props"]["figure"]
-        updated_figure = update_cell_outlines(figure_settings, cells_to_be_deleted)
-        print("Pushing an update to the figures")
-        # TODO: the updating of the graph doesn't seem to work... FIX THIS!
-        return [dcc.Graph(id="cell_outline_graph",
-                          figure=updated_figure)
-                ]
+        raise PreventUpdate
+        # if n_clicks is None:
+        #     print("no delete button clicks, raising PreventUpdate.")
+        #     raise PreventUpdate
+        # if cells_to_be_deleted is None:
+        #     print("no cells selected for deletion, raising PreventUpdate")
+        #     raise PreventUpdate
+        # figure_settings = cell_shape_plot["props"]["figure"]
+        # updated_figure = update_cell_outlines(figure_settings, cells_to_be_deleted)
+        # print("Pushing an update to the figures")
+        # # TODO: the updating of the graph doesn't seem to work... FIX THIS!
+        # return [dcc.Graph(id="cell_outline_graph",
+        #                   figure=updated_figure)
+        #         ]
     else:
         print("update_cell_shape_plots was triggered by an unknown, unexpected trigger. raising PreventUpdate")
         raise PreventUpdate
@@ -434,12 +485,13 @@ def update_cell_shape_plots(trigger, n_clicks,
     prevent_initial_call=True
 )
 def update_trace_plot(cells_to_display, traces_uploaded, traces_cached):
+    print("update_trace_plot called")
     if not cells_to_display or traces_uploaded is None:
         raise PreventUpdate
     if not traces_cached:
         traces = traces_uploaded
     else:
         traces = traces_cached
-    print("update_trace_plot called")
     trace_plot = line_chart(cells_to_display, traces)
+
     return trace_plot

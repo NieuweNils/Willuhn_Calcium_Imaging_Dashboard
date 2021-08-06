@@ -496,12 +496,16 @@ double_cell_selector = html.Div([
                 dcc.Store(id="fluorescence_traces_intermediate"),
                 dcc.Store(id="background_fluorescence"),
                 dcc.Store(id="metadata"),
-                dcc.Store(id="neurons_close_to_another"),
-                dcc.Store(id="neurons_close_to_another_intermediate"),
+                dcc.Store(id="distance"),
+                dcc.Store(id="distance_intermediate"),
                 dcc.Store(id="neighbours"),
                 dcc.Store(id="neighbours_intermediate"),
                 dcc.Store(id="list_of_cells"),
+                dcc.Store(id="list_of_cells_intermediate"),
                 dcc.Store(id="trigger-cell-shape-plot"),
+                dcc.Store(id="startup_trigger"),
+                dcc.Store(id="correlations"),
+                dcc.Store(id="correlations_intermediate"),
             ])
 
         ],

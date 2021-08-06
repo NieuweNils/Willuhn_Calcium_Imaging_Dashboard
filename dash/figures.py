@@ -5,11 +5,10 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objs as go
 
-from data_processing import get_pixel_df, get_cols_and_rows, correlating_neurons
+from data_processing import get_pixel_df, get_cols_and_rows
 from formatting import standard_layout, colours, font_family
 
 
-# HELPER FUNCTIONS
 
 def generatorify(tiff_data, skip_rate=1):
     """
@@ -377,24 +376,16 @@ def cell_outlines_double_cells(locations_df, neighbours_df, metadata, layout_bas
     return figure
 
 
-def correlation_plot(fluorescence_traces, neurons_close_to_another, min_correlation=0.2, layout_base=standard_layout):
-    # Calculate correlations
-    trace_matrix = np.array([value for value in fluorescence_traces.values()])
-    indices = [int(key) for key in fluorescence_traces.keys()]
-    correlation_matrix = np.corrcoef(trace_matrix)
-    correlation_matrix = np.absolute(correlation_matrix)
-    correlation_df = pd.DataFrame(correlation_matrix,
-                                  columns=indices,
-                                  index=indices)
-    # Discard the lower left triangle as all correlation values will end up as doubles (includes the diagonal of 1.0's)
-    correlation_df = correlation_df.where(np.triu(np.ones(correlation_matrix.shape), k=1).astype(np.bool))
+def correlation_plot(cell_list, correlation_df, distances, min_correlation=0.2, max_distance=10, layout_base=standard_layout):
     # Discard correlation values below threshold
     highly_correlating_neurons = correlation_df[correlation_df > min_correlation]
     # Discard non-neighbours
-    cells_to_select_row = set(neurons_close_to_another["neuron_1"])
-    cells_to_select_col = set(neurons_close_to_another["neuron_2"])
+    neighbours = distances[distances["distance"] < max_distance]
+    cells_to_select_row = set(neighbours["neuron_1"])
+    cells_to_select_col = set(neighbours["neuron_2"])
     correlating_neighbours = highly_correlating_neurons.loc[cells_to_select_row][cells_to_select_col]
-    # TODO: add bit here that discards correlations of neurons that are not pairs in neurons_close_to_another_df
+    correlating_neighbours = correlating_neighbours.dropna(how="all").dropna(how="all", axis=1)
+    # TODO: add bit here that discards correlations of neurons that are not pairs in distance_df
     # Assemble the figure
     values = correlating_neighbours.values
     values = values[~np.isnan(correlating_neighbours)]

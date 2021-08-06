@@ -76,23 +76,20 @@ def get_mean_locations(locations_df, metadata):
     return mean_locations_df
 
 
-def shortest_distances(mean_locations_df, small_distance=10):
+def distances(mean_locations_df):
     # Calculate pairwise euclidian distances
     distance_df = pd.DataFrame(itertools.combinations(mean_locations_df.index, 2), columns=["neuron_1", "neuron_2"])
     distance_df["distance"] = pdist(mean_locations_df.values, "euclid")
 
-    # Select neurons that are very close together
-    # TODO: write test cases to check that algorithms work as intended
-    neurons_closest_together_df = distance_df[distance_df["distance"] < small_distance]
-    return neurons_closest_together_df
+    return distance_df
 
 
-def create_neighbour_dict(neurons_close_to_another_df):
+def create_neighbour_dict(distance_correlation_df):
     neighbour_dict = {}
     new_row = 0
 
     # fill the dictionary as such: {key: value} -> {cell_number: row_number}
-    for (neuron1, neuron2, distance) in neurons_close_to_another_df.values:
+    for (neuron1, neuron2, distance, correlation) in distance_correlation_df.values:
         if neuron1 not in neighbour_dict:
             if neuron2 not in neighbour_dict:
                 # neither neurons are associated with a previous row, assign to new row
@@ -114,8 +111,15 @@ def create_neighbour_dict(neurons_close_to_another_df):
     return neighbour_dict
 
 
-def a_neurons_neighbours(neurons_close_to_another_df):
-    neighbour_dict = create_neighbour_dict(neurons_close_to_another_df)
+def a_neurons_neighbours(distance_df, correlation_df, max_distance=10, min_correlation=0.0):
+    correlation_series = correlation_df.stack()
+
+    df = distance_df
+    df['correlation'] = correlation_series.values
+    df = df[df['distance'] < max_distance]
+    df = df[df['correlation'] > min_correlation]
+
+    neighbour_dict = create_neighbour_dict(df)
     rows = set(neighbour_dict.values())
     # Create the table as a list of lists
     neighbours = []
@@ -141,9 +145,7 @@ def correlating_neurons(fluorescence_traces):
     # Discard the lower left triangle as all correlation values will end up as doubles (includes the diagonal of 1.0's)
     correlation_df = correlation_df.where(np.triu(np.ones(correlation_matrix.shape), k=1).astype(np.bool))
 
-    highly_correlating_neurons = correlation_df[correlation_df > 0.6]
-
-    return highly_correlating_neurons
+    return correlation_df
 
 
 def delete_locations(df, delete_list):
@@ -172,8 +174,8 @@ def delete_neighbours(df, delete_list):
     return df
 
 
-def delete_close_neurons(df, delete_list):
-    print("deleting cells from neurons_close_to_another_df")
+def delete_neurons_distances(df, delete_list):
+    print("deleting cells from distance_df")
     df = df[~df["neuron_1"].isin(delete_list)]
     df = df[~df["neuron_2"].isin(delete_list)]
 
