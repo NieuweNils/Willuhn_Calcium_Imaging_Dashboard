@@ -40,58 +40,6 @@ def play_video(n_clicks, playing):
     return playing
 
 
-# TODO: if I store the index of the cell in the neighbour_df, it"ll be easier to merge & delete entries in the dashboard
-def get_drop_down_list(list_of_cells):
-    drop_down_list = []
-    for cell in list_of_cells:
-        drop_down_list.append({"label": f"cell {int(cell)}", "value": int(cell)})
-    sorted_drop_down = sorted(drop_down_list, key=lambda list_entry: list_entry["value"])
-    return sorted_drop_down
-
-
-@app.callback(
-    Output("download-data-placeholder", "children"),
-    Input("neighbours", "modified_timestamp"),
-    prevent_initial_call=True,
-)
-def update_download_button(timestamp_neighbours):
-    print("update_download_button called")
-    return html.Div(
-        [html.Button("Download data",
-                     id="download-button",
-                     style=upload_button_style),
-         dcc.Download(id="download-data"),
-         ],
-    )
-
-
-@app.callback(
-    Output("download-data", "data"),
-    Input("download-button", "n_clicks"),
-    [State("locations", "data"),
-     State("fluorescence_traces", "data"),
-     State("background_fluorescence", "data"),
-     State("metadata", "data"),
-     State("neighbours", "data"),
-     ],
-    prevent_initial_call=True,
-)
-def download_data(n_clicks, locations, traces, background, metadata, neighbours):
-    if n_clicks is None:
-        raise PreventUpdate
-    loc_array = pd.read_json(locations).to_numpy(dtype="float", na_value=np.nan)
-    nb_array = pd.read_json(neighbours).to_numpy(dtype="float", na_value=np.nan)
-    processed_data = {
-        "locations": loc_array,  # this should be a list for speed optimization (no dataframe.to_json)
-        "traces": traces,
-        "background": background,
-        "metadata": metadata,
-        "neighbours": nb_array,
-    }
-    savemat("processed_data.mat", mdict=processed_data)
-    return dcc.send_file("processed_data.mat")
-
-
 def parse_data(contents, filename):
     content_type, content_string = contents.split(",")
     decoded = base64.b64decode(content_string)
@@ -168,6 +116,34 @@ def upload_data(list_of_contents, list_of_names):
     return [None, None, None, None, None, None, None, None]
 
 
+@app.callback(
+    Output("download-data", "data"),
+    Input("download-button", "n_clicks"),
+    [State("locations", "data"),
+     State("fluorescence_traces", "data"),
+     State("background_fluorescence", "data"),
+     State("metadata", "data"),
+     State("neighbours", "data"),
+     ],
+    prevent_initial_call=True,
+)
+def download_data(n_clicks, locations, traces, background, metadata, neighbours):
+    if n_clicks is None:
+        raise PreventUpdate
+    loc_array = pd.read_json(locations).to_numpy(dtype="float", na_value=np.nan)
+    nb_array = pd.read_json(neighbours).to_numpy(dtype="float", na_value=np.nan)
+    processed_data = {
+        "locations": loc_array,  # this should be a list for speed optimization (no dataframe.to_json)
+        "traces": traces,
+        "background": background,
+        "metadata": metadata,
+        "neighbours": nb_array,
+    }
+    savemat("processed_data.mat", mdict=processed_data)
+    return dcc.send_file("processed_data.mat")
+
+
+
 @app.callback(Output("distance-and-correlation-placeholder", "children"),
               Input("startup_trigger", "data"),
               )
@@ -191,89 +167,13 @@ def create_customization_inputs(trigger):
                         )
 
 
-@app.callback(Output("neighbour-table", "children"),
-              [Input("neighbours_intermediate", "data"),
-               Input("neighbours", "modified_timestamp"),
-               ],
-              State("neighbours", "data"),
-              prevent_initial_call=True,
-              )
-def update_neighbour_table(nb_upload, timestamp, nb_update):
-    ctx = callback_context
-    if ctx.triggered[0]["prop_id"].split(".")[0] == "neighbours_intermediate":
-        print("creating neighbour table for the first time")
-        neighbour_df = pd.read_json(nb_upload)
-    elif ctx.triggered[0]["prop_id"].split(".")[0] == "neighbours":
-        print("pushing update to neighbour table")
-        neighbour_df = pd.read_json(nb_update)
-    else:
-        print("update_neighbour_table was triggered by an unknown trigger, raising PreventUpdate")
-        raise PreventUpdate
-
-    table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
-    table_data = neighbour_df.to_dict("records")
-
-    return dash_table.DataTable(id="neighbour-datatable",
-                                columns=table_columns,
-                                data=table_data,
-                                fixed_rows={"headers": True},
-                                style_header={
-                                    "backgroundColor": "transparent",
-                                    "fontFamily": font_family,
-                                    "font-size": "1rem",
-                                    "color": colours["light-green"],
-                                    "border": "0px transparent",
-                                    "textAlign": "center",
-                                },
-                                style_table={
-                                    "height": "100%",
-                                    "width": "100%",
-                                    "marginLeft": "0%",
-                                    "marginRight": "auto",
-                                    "overflowY": "auto",
-                                },
-                                style_cell={
-                                    "backgroundColor": colours["dark-green"],
-                                    "color": colours["white"],
-                                    "border": "0px transparent",
-                                    "textAlign": "center",
-                                }
-                                )
-
-
-@app.callback(
-    Output("correlation-plot", "children"),
-    [Input("distance_intermediate", "data"),
-     Input("distance", "data"),
-     Input("correlations_intermediate", "data"),
-     Input("correlations", "data"),
-
-     Input("neighbour-criteria-button", "n_clicks")
-     ],
-    [State("list_of_cells", "data"),
-     State("distance_criteria", "value"),
-     State("correlation_criteria", "value"),
-     ],
-    prevent_inital_call=True,
-)
-def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached,
-                            n_clicks,
-                            cell_list, distance, correlation):
-    correlations = cor_uploaded if (cor_cached is None) else cor_cached
-    distance_table = dist_uploaded if (dist_cached is None) else dist_cached
-
-    if correlations is not None and distance_table is not None:
-        distance_df = pd.read_json(distance_table)
-        correlation_df = pd.read_json(correlations)
-        figure = correlation_plot(cell_list, correlation_df, distance_df,
-                                  min_correlation=float(correlation) if correlation else 0.1,
-                                  max_distance=distance if distance else 10)
-        return dcc.Graph(figure=figure,
-                         style={'width': '100%',
-                                'height': '100%',
-                                'margin': 'auto'})
-    else:
-        raise PreventUpdate
+# TODO: if I store the index of the cell in the neighbour_df, it"ll be easier to merge & delete entries in the dashboard
+def get_drop_down_list(list_of_cells):
+    drop_down_list = []
+    for cell in list_of_cells:
+        drop_down_list.append({"label": f"cell {int(cell)}", "value": int(cell)})
+    sorted_drop_down = sorted(drop_down_list, key=lambda list_entry: list_entry["value"])
+    return sorted_drop_down
 
 
 # TODO: change this to make use of the rows of neighbouring cells
@@ -319,6 +219,7 @@ def create_delete_and_merge_buttons(timestamp):
             html.Button("Merge selected cells", id="merge-button", style=upload_button_style)]
 
 
+# TODO: split this up into several callbacks
 @app.callback(
     [
         Output("locations", "data"),
@@ -422,6 +323,107 @@ def update_data_stores(n_clicks_del, n_clicks_merge, n_clicks_criteria,
         updated_neighbours = neighbour_df.to_json()
 
         return [cached_loc, cached_traces, updated_neighbours, cached_cell_list, updated_distance, cached_correlations]
+
+
+@app.callback(
+    Output("download-data-placeholder", "children"),
+    Input("neighbours", "modified_timestamp"),
+    prevent_initial_call=True,
+)
+def update_download_button(timestamp_neighbours):
+    print("update_download_button called")
+    return html.Div(
+        [html.Button("Download data",
+                     id="download-button",
+                     style=upload_button_style),
+         dcc.Download(id="download-data"),
+         ],
+    )
+
+
+@app.callback(Output("neighbour-table", "children"),
+              [Input("neighbours_intermediate", "data"),
+               Input("neighbours", "modified_timestamp"),
+               ],
+              State("neighbours", "data"),
+              prevent_initial_call=True,
+              )
+def update_neighbour_table(nb_upload, timestamp, nb_update):
+    ctx = callback_context
+    if ctx.triggered[0]["prop_id"].split(".")[0] == "neighbours_intermediate":
+        print("creating neighbour table for the first time")
+        neighbour_df = pd.read_json(nb_upload)
+    elif ctx.triggered[0]["prop_id"].split(".")[0] == "neighbours":
+        print("pushing update to neighbour table")
+        neighbour_df = pd.read_json(nb_update)
+    else:
+        print("update_neighbour_table was triggered by an unknown trigger, raising PreventUpdate")
+        raise PreventUpdate
+
+    table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
+    table_data = neighbour_df.to_dict("records")
+
+    return dash_table.DataTable(id="neighbour-datatable",
+                                columns=table_columns,
+                                data=table_data,
+                                fixed_rows={"headers": True},
+                                style_header={
+                                    "backgroundColor": "transparent",
+                                    "fontFamily": font_family,
+                                    "font-size": "1rem",
+                                    "color": colours["light-green"],
+                                    "border": "0px transparent",
+                                    "textAlign": "center",
+                                },
+                                style_table={
+                                    "height": "100%",
+                                    "width": "100%",
+                                    "marginLeft": "0%",
+                                    "marginRight": "auto",
+                                    "overflowY": "auto",
+                                },
+                                style_cell={
+                                    "backgroundColor": colours["dark-green"],
+                                    "color": colours["white"],
+                                    "border": "0px transparent",
+                                    "textAlign": "center",
+                                }
+                                )
+
+
+@app.callback(
+    Output("correlation-plot", "children"),
+    [Input("distance_intermediate", "data"),
+     Input("distance", "data"),
+     Input("correlations_intermediate", "data"),
+     Input("correlations", "data"),
+
+     Input("neighbour-criteria-button", "n_clicks")
+     ],
+    [State("list_of_cells", "data"),
+     State("distance_criteria", "value"),
+     State("correlation_criteria", "value"),
+     ],
+    prevent_inital_call=True,
+)
+def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached,
+                            n_clicks,
+                            cell_list, distance, correlation):
+    correlations = cor_uploaded if (cor_cached is None) else cor_cached
+    distance_table = dist_uploaded if (dist_cached is None) else dist_cached
+
+    if correlations is not None and distance_table is not None:
+        distance_df = pd.read_json(distance_table)
+        correlation_df = pd.read_json(correlations)
+        figure = correlation_plot(cell_list, correlation_df, distance_df,
+                                  min_correlation=float(correlation) if correlation else 0.1,
+                                  max_distance=distance if distance else 10)
+        return dcc.Graph(figure=figure,
+                         style={'width': '100%',
+                                'height': '100%',
+                                'margin': 'auto'})
+    else:
+        raise PreventUpdate
 
 
 # TODO: find out why this is not always triggered (and I think never by locations_intermediate)
