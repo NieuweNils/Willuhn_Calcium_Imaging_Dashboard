@@ -89,7 +89,7 @@ def create_neighbour_dict(distance_correlation_df):
     new_row = 0
 
     # fill the dictionary as such: {key: value} -> {cell_number: row_number}
-    for (neuron1, neuron2, distance, correlation) in distance_correlation_df.values:
+    for (neuron1, neuron2, *_) in distance_correlation_df.values:
         if neuron1 not in neighbour_dict:
             if neuron2 not in neighbour_dict:
                 # neither neurons are associated with a previous row, assign to new row

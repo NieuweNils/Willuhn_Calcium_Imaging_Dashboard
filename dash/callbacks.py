@@ -247,24 +247,27 @@ def update_neighbour_table(nb_upload, timestamp, nb_update):
      Input("distance", "data"),
      Input("correlations_intermediate", "data"),
      Input("correlations", "data"),
+
+     Input("neighbour-criteria-button", "n_clicks")
      ],
-    State("list_of_cells", "data"),
+    [State("list_of_cells", "data"),
+     State("distance_criteria", "value"),
+     State("correlation_criteria", "value"),
+     ],
     prevent_inital_call=True,
 )
-def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached, cell_list):
-    if cor_cached is None:
-        correlations = cor_uploaded
-    else:
-        correlations = cor_cached
-    if dist_cached is None:
-       distances = dist_uploaded
-    else:
-       distances = dist_cached
+def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached,
+                            n_clicks,
+                            cell_list, distance, correlation):
+    correlations = cor_uploaded if (cor_cached is None) else cor_cached
+    distance_table = dist_uploaded if (dist_cached is None) else dist_cached
 
-    if correlations is not None and distances is not None:
-        distance_df = pd.read_json(distances)
+    if correlations is not None and distance_table is not None:
+        distance_df = pd.read_json(distance_table)
         correlation_df = pd.read_json(correlations)
-        figure = correlation_plot(cell_list, correlation_df, distance_df)
+        figure = correlation_plot(cell_list, correlation_df, distance_df,
+                                  min_correlation=float(correlation) if correlation else 0.1,
+                                  max_distance=distance if distance else 10)
         return dcc.Graph(figure=figure,
                          style={'width': '100%',
                                 'height': '100%',
