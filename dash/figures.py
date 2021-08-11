@@ -439,3 +439,124 @@ def line_chart(cells_to_display, traces, layout_base=standard_layout):
 
     return figure
 
+
+def retrieve_contours(locations, background, thr=None, threshold_method="max", maxthr=0.2, energy_threshold=0.9,
+                      display_numbers=True, max_number=None,
+                      cmap="gray", swap_dim=False, colors="yellow", vmin=None,
+                      vmax=None, **kwargs):
+    """Plots contour of spatial components against a background image
+       and returns their coordinates
+
+       From Caiman: https://github.com/flatironinstitute/CaImlocationsn
+       @author: agiovann
+
+     Parameters:
+     -----------
+     locations:   np.ndarray or sparse matrix
+               Matrix of Spatial components (d x K)
+
+     background:  np.ndarray (2D)
+               Background image (e.g. mean, correlation)
+
+     thr_method: [optional] string
+              Method of thresholding:
+                  'max' sets to zero pixels that have value less
+                  than a fraction of the max value
+                  'nrg' keeps the pixels that contribute up to a
+                  specified fraction of the energy
+
+     maxthr: [optional] scalar
+                Threshold of max value
+
+     nrgthr: [optional] scalar
+                Threshold of energy
+
+     thr: scalar between 0 and 1
+               Energy threshold for computing contours (default 0.9)
+               Kept for backwards compatibility.
+               If not None then thr_method = 'nrg', and nrgthr = thr
+
+     display_number:     Boolean
+               Display number of ROIs if checked (default True)
+
+     max_number:    int
+               Display the number for only the first max_number components
+               (default None, display all numbers)
+
+     cmap:     string
+               User specifies the colormap (default None, default colormap)
+
+     Returns:
+     --------
+     contour_plots:     list
+                A list of 3D numpy arrays containing the image in RGBA format (png compatible)
+    """
+    if sparse.issparse(locations):
+        locations = np.array(locations.todense())
+    else:
+        locations = np.array(locations)
+
+    if swap_dim:
+        background = background.T
+        print('Swapping dimensions')
+
+    d1, d2 = np.shape(background)
+    nr_pixels, nr_cells = np.shape(locations)
+    if max_number is None:
+        max_number = nr_cells
+
+    if thr is not None:
+        threshold_method = 'nrg'
+        energy_threshold = thr
+        warn("The way to call utilities.plot_contours has changed.")
+
+    x, y = np.mgrid[0:d1:1, 0:d2:1]
+
+    if vmax is None and vmin is None:
+        plt.imshow(background, interpolation=None, cmap=cmap,
+                   vmin=np.percentile(background[~np.isnan(background)], 1),
+                   vmax=np.percentile(background[~np.isnan(background)], 99))
+    else:
+        plt.imshow(background, interpolation=None, cmap=cmap,
+                   vmin=vmin, vmax=vmax)
+
+    contour_plots = []
+    for i in range(np.minimum(nr_cells, max_number)):
+        # remove a contourplot if it was already drawn.
+        for collection in plt.gca().collections:
+            collection.remove()
+
+        if threshold_method == 'nrg':
+            index = np.argsort(locations[:, i], axis=None)[::-1]
+            cum_energy = np.cumsum(locations[:, i].flatten()[index]**2)
+            cum_energy /= cum_energy[-1]
+            location_vector = np.zeros(nr_pixels)
+            location_vector[index] = cum_energy
+            thr = energy_threshold
+
+        else:
+            if threshold_method != 'max':
+                warn("Unknown threshold method. Choosing max")
+            location_vector = locations[:, i].flatten()
+            location_vector /= np.max(location_vector)  # normalise location vector
+            thr = maxthr
+
+        if swap_dim:
+            location_matrix = np.reshape(location_vector, np.shape(background), order='C')
+        else:
+            location_matrix = np.reshape(location_vector, np.shape(background), order='F')
+        plt.axis('off')
+        plt.contour(y, x, location_matrix, [thr], colors="orange")
+
+        fig = plt.gcf()
+        fig.tight_layout(pad=0)
+
+        io_buf = io.BytesIO()
+        fig.savefig(io_buf, format='raw')
+        io_buf.seek(0)
+        img_arr = np.reshape(np.frombuffer(io_buf.getvalue(), dtype=np.uint8),
+                             newshape=(int(fig.bbox.bounds[3]), int(fig.bbox.bounds[2]), -1))
+        io_buf.close()
+        contour_plots.append(img_arr)
+
+    return contour_plots
