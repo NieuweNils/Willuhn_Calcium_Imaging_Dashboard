@@ -205,13 +205,14 @@ def update_drop_downs(uploaded_data, cached_data):
 
     drop_down_list = get_drop_down_list(cells)
 
-    return [dcc.Dropdown(id="drop-down-delete", options=drop_down_list, multi=True,
-                         placeholder="Select cells to delete"),
-            dcc.Dropdown(id="drop-down-merge", options=drop_down_list, multi=True,
-                         placeholder="Select cells to merge"),
-            dcc.Dropdown(id="drop-down-traces", options=drop_down_list, multi=True,
-                         placeholder="Select cells to show their traces"),
-            ]
+    drop_downs = [dcc.Dropdown(id="drop-down-delete", options=drop_down_list, multi=True,
+                               placeholder="Select cells to delete"),
+                  dcc.Dropdown(id="drop-down-merge", options=drop_down_list, multi=True,
+                               placeholder="Select cells to merge"),
+                  dcc.Dropdown(id="drop-down-traces", options=drop_down_list, multi=True,
+                               placeholder="Select cells to show their traces")]
+
+    return drop_downs
 
 
 @app.callback(
@@ -261,6 +262,7 @@ def update_data_stores(n_clicks_del, n_clicks_merge,
                        uploaded_loc, uploaded_traces, uploaded_cell_list, uploaded_distance, uploaded_correlations,
                        cells_to_be_deleted, cells_to_be_merged,
                        cached_loc, cached_traces, cached_cell_list, cached_distance, cached_correlations):
+    start = time.time()
     print("update_data_stores called")
     # if there is no data in the Stores, use the uploaded data
     if cached_loc is None or cached_traces is None or cached_cell_list is None or cached_distance is None or cached_correlations is None:
@@ -281,6 +283,7 @@ def update_data_stores(n_clicks_del, n_clicks_merge,
             updated_cell_list = list(updated_traces.keys())
             updated_distance_table = delete_neurons_distances(df=distance_df,
                                                               delete_list=cells_to_be_deleted).to_json()
+            print(f"update_drop_downs took {time.time() - start}s")
             return [updated_locations, updated_traces, updated_cell_list, updated_distance_table, cached_correlations]
         else:
             print("no cells to be deleted, raising PreventUpdate")
@@ -297,6 +300,7 @@ def update_data_stores(n_clicks_del, n_clicks_merge,
             updated_cell_list = list(updated_traces.keys())
             updated_neuron_distance = delete_neurons_distances(df=distance_df,
                                                                delete_list=cells_to_be_merged[1:]).to_json()
+            print(f"update_drop_downs took {time.time() - start}s")
             return [updated_locations, updated_traces, updated_cell_list, updated_neuron_distance, cached_correlations]
         else:
             print("no cells to be merged, raising PreventUpdate")
@@ -368,6 +372,7 @@ def update_download_button(timestamp_neighbours):
               prevent_initial_call=True,
               )
 def update_neighbour_table(nb_upload, timestamp, nb_update):
+    start = time.time()
     ctx = callback_context
     if ctx.triggered[0]["prop_id"].split(".")[0] == "neighbours_intermediate":
         print("creating neighbour table for the first time")
@@ -381,33 +386,33 @@ def update_neighbour_table(nb_upload, timestamp, nb_update):
 
     table_columns = [{"name": i, "id": i} for i in neighbour_df.columns]
     table_data = neighbour_df.to_dict("records")
-
-    return dash_table.DataTable(id="neighbour-datatable",
-                                columns=table_columns,
-                                data=table_data,
-                                fixed_rows={"headers": True},
-                                style_header={
-                                    "backgroundColor": "transparent",
-                                    "fontFamily": font_family,
-                                    "font-size": "1rem",
-                                    "color": colours["light-green"],
-                                    "border": "0px transparent",
-                                    "textAlign": "center",
-                                },
-                                style_table={
-                                    "height": "100%",
-                                    "width": "100%",
-                                    "marginLeft": "0%",
-                                    "marginRight": "auto",
-                                    "overflowY": "auto",
-                                },
-                                style_cell={
-                                    "backgroundColor": colours["dark-green"],
-                                    "color": colours["white"],
-                                    "border": "0px transparent",
-                                    "textAlign": "center",
-                                }
-                                )
+    neighbour_table = dash_table.DataTable(id="neighbour-datatable",
+                                           columns=table_columns,
+                                           data=table_data,
+                                           fixed_rows={"headers": True},
+                                           style_header={
+                                               "backgroundColor": "transparent",
+                                               "fontFamily": font_family,
+                                               "font-size": "1rem",
+                                               "color": colours["light-green"],
+                                               "border": "0px transparent",
+                                               "textAlign": "center",
+                                           },
+                                           style_table={
+                                               "height": "100%",
+                                               "width": "100%",
+                                               "marginLeft": "0%",
+                                               "marginRight": "auto",
+                                               "overflowY": "auto",
+                                           },
+                                           style_cell={
+                                               "backgroundColor": colours["dark-green"],
+                                               "color": colours["white"],
+                                               "border": "0px transparent",
+                                               "textAlign": "center",
+                                           }
+                                           )
+    return neighbour_table
 
 
 @app.callback(
@@ -500,19 +505,44 @@ def update_cell_shape_plots(trigger, n_clicks,
 
 @app.callback(
     Output("trace-plot", "figure"),
-    Input("drop-down-traces", "value"),
+    [Input("drop-down-traces", "value"),
+     Input("interval-component", "n_intervals")
+     ],
+    State("cell_outline_graph", "figure"),
     State("fluorescence_traces_intermediate", "data"),
     State("fluorescence_traces", "data"),
     prevent_initial_call=True
 )
-def update_trace_plot(cells_to_display, traces_uploaded, traces_cached):
+def update_trace_plot(cells_to_display, n_intervals,
+                      cell_outline_figure, traces_uploaded, traces_cached):
+    start = time.time()
     print("update_trace_plot called")
-    if not cells_to_display or traces_uploaded is None:
+
+    ctx = callback_context
+    # catch exceptions:
+    if ctx.triggered[0]["prop_id"].split(".")[0] == "interval-component":
+        if cells_to_display:
+            raise PreventUpdate
+        if not cell_outline_figure:
+            raise PreventUpdate
+    if not (cells_to_display or cell_outline_figure) or traces_uploaded is None:
         raise PreventUpdate
+    # load correct traces
     if not traces_cached:
         traces = traces_uploaded
     else:
         traces = traces_cached
-    trace_plot = line_chart(cells_to_display, traces)
+    # make trace plot
+    if cells_to_display:
+        trace_plot = line_chart(cells_to_display, traces)
+        print(f"update_trace_plot took {time.time()-start}s")
+        return trace_plot
 
-    return trace_plot
+    if cell_outline_figure:
+        selected_cell = cell_outline_figure["layout"]["sliders"][0]["active"]
+        trace_plot = line_chart([selected_cell], traces)
+        print(f"update_trace_plot took {time.time() - start}s")
+        return trace_plot
+
+    raise PreventUpdate
+
