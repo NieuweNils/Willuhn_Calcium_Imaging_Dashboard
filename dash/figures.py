@@ -1,15 +1,14 @@
+import base64
 import io
 from copy import copy
 
-import dash_table
 import numpy as np
 import pandas as pd
 import plotly.graph_objs as go
-from matplotlib import pyplot as plt
+from PIL import Image
 
 from data_processing import get_pixel_df, get_cols_and_rows, retrieve_contour_coordinates
 from formatting import standard_layout, colours, font_family
-
 
 
 def generatorify(tiff_data, skip_rate=1):
@@ -257,7 +256,7 @@ def frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2, backgrou
     return frames, frame_names
 
 
-def layout_cell_outline_plot(layout, frame_names, d1, d2):
+def layout_cell_outline_plot(layout, frame_names, background, d1, d2):
     slider_dict = slider_base()
     slider_dict["steps"] = slider_steps(frame_names)
     layout["sliders"] = [slider_dict]
@@ -265,8 +264,28 @@ def layout_cell_outline_plot(layout, frame_names, d1, d2):
     drop_down_settings = drop_down(frame_names)
     layout["updatemenus"] = [drop_down_settings]
 
+    # convert background to image
+    background_pil = Image.fromarray(np.uint8(np.array(background)*256))
+    buffer = io.BytesIO()
+    background_pil.save(buffer, format="jpeg")
+    background_base64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
     layout["xaxis"]["range"] = [0, d2]
-    layout["yaxis"]["range"] = [0, d1]
+    layout["yaxis"]["range"] = [d1, 0]
+    # place background image to fill screen
+    layout["images"] = [
+        {"source": "data:image/jpeg;base64,{}".format(background_base64),
+         "xref": "paper",
+         "yref": "paper",
+         "x": 0,
+         "y": 1,
+         "sizex": 1,
+         "sizey": 1,
+         "xanchor": "left",
+         "yanchor": "top",
+         "sizing": "stretch",
+         "layer": "below"}
+    ]
 
     return layout
 
@@ -450,7 +469,7 @@ def contour_plot(locations, background, layout_base=standard_layout):
     contour_coordinates = retrieve_contour_coordinates(locations=locations, background=background)
     frames = []
     for index, coordinate_vector in enumerate(contour_coordinates):
-        # TODO: make this contour orange
+        # TODO: make this contour orange?
         contour_trace = go.Scatter(x=coordinate_vector[:, 0],
                                    y=coordinate_vector[:, 1],
                                    mode="lines")
@@ -461,7 +480,7 @@ def contour_plot(locations, background, layout_base=standard_layout):
     frame_names = [str(cell) for cell in list(range(locations.shape[1]))]
 
     # create layout
-    layout = layout_cell_outline_plot(layout_base, frame_names, d1, d2)
+    layout = layout_cell_outline_plot(layout_base, frame_names, background, d1, d2)
 
     # Assemble figure
     figure = go.Figure(data=frames[0]["data"],

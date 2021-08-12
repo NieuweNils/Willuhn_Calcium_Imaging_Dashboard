@@ -435,8 +435,8 @@ def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached
         distance_df = pd.read_json(distance_table)
         correlation_df = pd.read_json(correlations)
         figure = correlation_plot(cell_list, correlation_df, distance_df,
-                                  min_correlation=float(correlation) if correlation else 0.1,
-                                  max_distance=distance if distance else 10)
+                                  min_correlation=float(correlation) if correlation != "" else 0.1,
+                                  max_distance=distance if distance != "" else 10)
         return dcc.Graph(figure=figure,
                          style={'width': '100%',
                                 'height': '100%',
@@ -461,49 +461,41 @@ def update_cell_shape_plots(trigger, n_clicks,
                             cells_to_be_deleted,
                             cell_shape_plot,
                             ):
+    ctx = callback_context
     if locations is not None and cell_shape_plot is None:
         print("creating figures for the first time")
-        location_array = pd.read_json(locations).values
+        start_time = time.time()
+        location_array = pd.read_json(locations).values  # TODO this can probably be a lot quicker by using a dictionary
+        duration = time.time() - start_time
+        print(f"the data took {duration}s to load into an array")
+
+        start_time = time.time()
         cell_outline_figure = contour_plot(locations=location_array,
                                            background=background_fluorescence)
+        duration = time.time() - start_time
+        print(f"that figure took {duration}s to make")
         return [dcc.Graph(id="cell_outline_graph",
                           figure=cell_outline_figure),
                 ]
 
-    # ctx = callback_context
-    # if locations is not None and cell_shape_plot is None:
-    #     print("creating figures for the first time")
-    #     start_time = time.time()
-    #     locations_df = pd.read_json(locations)  # TODO this can probably be a lot quicker by using a dictionary
-    #     duration = time.time() - start_time
-    #     print(f"the data took {duration}s to load into a dataframe")
-    #
-    #     start_time = time.time()
-    #     cell_outline_figure = cell_outlines(locations_df, metadata, background=background_fluorescence)
-    #     duration = time.time() - start_time
-    #     print(f"that figure took {duration}s to make")
-    #     return [dcc.Graph(id="cell_outline_graph",
-    #                       figure=cell_outline_figure),
-    #             ]
-    #
-    # if ctx.triggered[0]['prop_id'].split('.')[0] == "delete-button":
-    #     raise PreventUpdate
-    #     # if n_clicks is None:
-    #     #     print("no delete button clicks, raising PreventUpdate.")
-    #     #     raise PreventUpdate
-    #     # if cells_to_be_deleted is None:
-    #     #     print("no cells selected for deletion, raising PreventUpdate")
-    #     #     raise PreventUpdate
-    #     # figure_settings = cell_shape_plot["props"]["figure"]
-    #     # updated_figure = update_cell_outlines(figure_settings, cells_to_be_deleted)
-    #     # print("Pushing an update to the figures")
-    #     # # TODO: the updating of the graph doesn't seem to work... FIX THIS!
-    #     # return [dcc.Graph(id="cell_outline_graph",
-    #     #                   figure=updated_figure)
-    #     #         ]
-    # else:
-    #     print("update_cell_shape_plots was triggered by an unknown, unexpected trigger. raising PreventUpdate")
-    #     raise PreventUpdate
+    if ctx.triggered[0]['prop_id'].split('.')[0] == "delete-button":
+        raise PreventUpdate
+        # if n_clicks is None:
+        #     print("no delete button clicks, raising PreventUpdate.")
+        #     raise PreventUpdate
+        # if cells_to_be_deleted is None:
+        #     print("no cells selected for deletion, raising PreventUpdate")
+        #     raise PreventUpdate
+        # figure_settings = cell_shape_plot["props"]["figure"]
+        # updated_figure = update_cell_outlines(figure_settings, cells_to_be_deleted)
+        # print("Pushing an update to the figures")
+        # # TODO: the updating of the graph doesn't seem to work... FIX THIS!
+        # return [dcc.Graph(id="cell_outline_graph",
+        #                   figure=updated_figure)
+        #         ]
+    else:
+        print("update_cell_shape_plots was triggered by an unknown, unexpected trigger. raising PreventUpdate")
+        raise PreventUpdate
 
 
 @app.callback(
