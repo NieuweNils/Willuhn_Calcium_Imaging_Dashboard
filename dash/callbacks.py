@@ -1,8 +1,6 @@
 import base64
 import io
-import os
 import time
-import json
 
 import dash_core_components as dcc
 import dash_html_components as html
@@ -16,7 +14,7 @@ from scipy.io import loadmat, savemat
 
 
 from app import app
-from data_processing import retrieve_metadata, get_mean_locations, distances, correlating_neurons, a_neurons_neighbours, \
+from data_processing import retrieve_metadata, get_centre_of_mass, distances, correlating_neurons, a_neurons_neighbours, \
     delete_locations, delete_traces, delete_neighbours, delete_neurons_distances, merge_locations, merge_traces
 from figures import cell_outlines, line_chart, correlation_plot, contour_plot
 from formatting import colours, font_family, upload_button_style
@@ -87,6 +85,8 @@ def upload_data(list_of_contents, list_of_names):
         print("transforming the data")
         start_time = time.time()
 
+        locations_df = pd.DataFrame(locations)
+
         number_of_cells = locations.shape[1]
         list_of_cells = list(range(number_of_cells))
         loc_dict = {}
@@ -101,8 +101,8 @@ def upload_data(list_of_contents, list_of_names):
         for cell in list_of_cells:
             trace_dict[cell] = fluorescence_traces[cell]
 
-        locations_df = pd.DataFrame(locations)
-        mean_locations = get_mean_locations(locations_df, metadata)  # TODO: speed this up 10x
+        mean_locations = get_centre_of_mass(locations, metadata["d1"], metadata["d2"])
+        mean_locations = pd.DataFrame(mean_locations)
         distance_df = distances(mean_locations)
         correlation_df = correlating_neurons(fluorescence_traces)
         neighbour_df = a_neurons_neighbours(distance_df, correlation_df)

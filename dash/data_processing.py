@@ -229,6 +229,41 @@ def merge_traces(traces, merge_list):
     return traces
 
 
+def get_centre_of_mass(locations, d1, d2):
+    """Calculation of the center of mass for spatial components
+
+       From Caiman: https://github.com/flatironinstitute/CaImAn
+       @author: agiovann
+
+     Inputs:
+     ------
+     locations:     np.ndarray
+          matrix of spatial components (pixels x number_of_cells)
+
+     d1:            int
+          number of pixels in x-direction
+
+     d2:            int
+          number of pixels in y-direction
+
+     Output:
+     -------
+     center_of_mass:  np.ndarray
+          center of mass for spatial components (number_of_cells x 2)
+    """
+    nr_of_cells = np.shape(locations)[-1]
+    coordinates = {'x': np.kron(np.ones((d2, 1)),
+                                np.expand_dims(list(range(d1)), axis=1)),
+                   'y': np.kron(np.expand_dims(list(range(d2)), axis=1),
+                                np.ones((d1, 1)))
+                   }
+    center_of_mass = np.zeros((nr_of_cells, 2))
+    center_of_mass[:, 0] = old_div(np.dot(coordinates['x'].T, locations), locations.sum(axis=0))
+    center_of_mass[:, 1] = old_div(np.dot(coordinates['y'].T, locations), locations.sum(axis=0))
+
+    return center_of_mass
+
+
 def retrieve_contour_coordinates(locations, background, thr=None, threshold_method="max", maxthr=0.2, energy_threshold=0.9,
                       swap_dim=False, colors="orange",
                       **kwargs):
