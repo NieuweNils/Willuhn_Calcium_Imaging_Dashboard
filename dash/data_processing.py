@@ -2,7 +2,13 @@ import itertools
 
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use("agg")
+from matplotlib import pyplot as plt
 from scipy.spatial.distance import pdist
+
+import scipy.sparse as sparse
+from past.utils import old_div
 
 
 def retrieve_metadata(data_after_cnmf_e):
@@ -204,6 +210,7 @@ def merge_locations(locations, merge_list):
     # update first cell in list with updated locations
     merged_locations = locations[merge_list].max(axis=1)  # make a pixel 2 that is 2 in at least 1 cell
     updated_locations[merge_list[0]] = merged_locations
+    # TODO: also update mean_locations here (and let that trigger update_neighbour_data)
     return updated_locations
 
 
@@ -220,3 +227,110 @@ def merge_traces(traces, merge_list):
     # add average trace to the traces (use the first of the list to store it)
     traces[str(merge_list[0])] = average_trace
     return traces
+
+
+def retrieve_contour_coordinates(locations, background, thr=None, threshold_method="max", maxthr=0.2, energy_threshold=0.9,
+                      swap_dim=False, colors="orange",
+                      **kwargs):
+    """returns the coordinates of the contours of each cell in the locations tensor
+
+       From Caiman: https://github.com/flatironinstitute/CaImlocationsn
+       @author: agiovann
+
+     Parameters:
+     -----------
+     locations:     np.ndarray or sparse matrix
+               Matrix of Spatial components (d x K)
+
+     background:    np.ndarray (2D)
+               Background image (e.g. mean, correlation)
+
+     thr:           scalar between 0 and 1
+               Energy threshold for computing contours (default 0.9)
+               Kept for backwards compatibility.
+               If not None then thr_method = 'nrg', and nrgthr = thr
+
+     thr_method:    [optional] string
+                Method of thresholding:
+                'max' sets to zero pixels that have value less
+                than a fraction of the max value
+                'nrg' keeps the pixels that contribute up to a
+                specified fraction of the energy
+
+     maxthr:        [optional] scalar
+                Threshold of max value (default 0.2)
+
+     nrgthr:        [optional] scalar
+                Threshold of energy (default 0.9)
+
+     colors:        string
+                Color of the contour colormap (default "orange")
+
+     Returns:
+     --------
+     contour_coordinates:   list
+             list of contour plot coordinates for each cell
+    """
+    if sparse.issparse(locations):
+        locations = np.array(locations.todense())
+    else:
+        locations = np.array(locations)
+
+    if swap_dim:
+        background = background.T
+        print('Swapping dimensions')
+
+    d1, d2 = np.shape(background)
+    nr_pixels, nr_cells = np.shape(locations)
+
+    if thr is not None:
+        threshold_method = 'nrg'
+        energy_threshold = thr
+        warn("The way to call utilities.plot_contours has changed.")
+
+    x, y = np.mgrid[0:d1:1, 0:d2:1]
+
+    contour_coordinates = []
+    for i in range(nr_cells):
+        # TODO: check if this is necessary
+        # remove a contour plot if it was already drawn.
+        for collection in plt.gca().collections:
+            collection.remove()
+
+        if threshold_method == 'nrg':
+            index = np.argsort(locations[:, i], axis=None)[::-1]
+            cum_energy = np.cumsum(locations[:, i].flatten()[index]**2)
+            cum_energy /= cum_energy[-1]  # normalise location vector
+            location_vector = np.zeros(nr_pixels)
+            location_vector[index] = cum_energy
+            thr = energy_threshold
+
+        else:
+            if threshold_method != 'max':
+                warn("Unknown threshold method. Choosing max")
+            location_vector = locations[:, i].flatten()
+            location_vector /= np.max(location_vector)  # normalise location vector
+            thr = maxthr
+
+        if swap_dim:
+            location_matrix = np.reshape(location_vector, np.shape(background), order='C')
+        else:
+            location_matrix = np.reshape(location_vector, np.shape(background), order='F')
+
+        cell_contour = plt.contour(y, x, location_matrix, [thr], colors=colors)
+
+        paths = cell_contour.collections[0].get_paths()
+        coordinate_vector = np.atleast_2d([np.nan, np.nan])
+        for path in paths:
+            vertex = path.vertices
+            nr_close_coordinates = np.sum(np.isclose(vertex[0, :], vertex[-1, :]))
+            if nr_close_coordinates < 2:
+                if nr_close_coordinates == 0:
+                    new_point = np.round(old_div(vertex[-1, :], [d2, d1])) * [d2, d1]
+                    vertex = np.concatenate((vertex, new_point[np.newaxis, :]), axis=0)
+                else:
+                    vertex = np.concatenate((vertex, vertex[0, np.newaxis]), axis=0)
+            coordinate_vector = np.concatenate((coordinate_vector, vertex, np.atleast_2d([np.nan, np.nan])), axis=0)
+        contour_coordinates.append(coordinate_vector)
+
+    return contour_coordinates

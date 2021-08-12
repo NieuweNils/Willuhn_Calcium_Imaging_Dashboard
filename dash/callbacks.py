@@ -18,7 +18,7 @@ from scipy.io import loadmat, savemat
 from app import app
 from data_processing import retrieve_metadata, get_mean_locations, distances, correlating_neurons, a_neurons_neighbours, \
     delete_locations, delete_traces, delete_neighbours, delete_neurons_distances, merge_locations, merge_traces
-from figures import cell_outlines, line_chart, correlation_plot
+from figures import cell_outlines, line_chart, correlation_plot, contour_plot
 from formatting import colours, font_family, upload_button_style
 
 
@@ -87,35 +87,25 @@ def upload_data(list_of_contents, list_of_names):
         print("transforming the data")
         start_time = time.time()
 
-        begin = time.time()
-        locations_df = pd.DataFrame(locations)
-        duration = time.time()-begin
-        print(f"locations_df = pd.DataFrame(locations) took {duration}s")
+        number_of_cells = locations.shape[1]
+        list_of_cells = list(range(number_of_cells))
+        loc_dict = {}
+        for cell in list_of_cells:
+            loc_data = locations[:, cell]
+            loc_data = np.transpose(loc_data, (1, 0))  # store in a more intuitive format
+            loc_dict[cell] = loc_data
 
-        begin = time.time()
-        mean_locations = get_mean_locations(locations_df, metadata)
-        duration = time.time()-begin
-        print(f"mean_locations = get_mean_locations(locations_df, metadata) took {duration}s")
-
-        begin = time.time()
-        distance_df = distances(mean_locations)
-        duration = time.time()-begin
-        print(f"distance_df = distances(mean_locations) took {duration}s")
-
-        begin = time.time()
-        correlation_df = correlating_neurons(fluorescence_traces)
-        duration = time.time()-begin
-        print(f"correlation_df = correlating_neurons(fluorescence_traces) took {duration}s")
-
-        begin = time.time()
-        neighbour_df = a_neurons_neighbours(distance_df, correlation_df)
-        duration = time.time()-begin
-        print(f"neighbour_df = a_neurons_neighbours(distance_df, correlation_df) took {duration}s")
-
-        list_of_cells = list(range(len(fluorescence_traces)))
+        number_of_cells = len(fluorescence_traces)
+        list_of_cells = list(range(number_of_cells))
         trace_dict = {}
-        for cell in list(range(len(fluorescence_traces))):
+        for cell in list_of_cells:
             trace_dict[cell] = fluorescence_traces[cell]
+
+        locations_df = pd.DataFrame(locations)
+        mean_locations = get_mean_locations(locations_df, metadata)  # TODO: speed this up 10x
+        distance_df = distances(mean_locations)
+        correlation_df = correlating_neurons(fluorescence_traces)
+        neighbour_df = a_neurons_neighbours(distance_df, correlation_df)
 
         duration = time.time() - start_time
         print(f"transforming took {duration}s")
@@ -199,7 +189,6 @@ def get_drop_down_list(list_of_cells):
     Output("drop-down-delete-placeholder", "children"),
     Output("drop-down-merge-placeholder", "children"),
     Output("drop-down-traces-placeholder", "children"),
-    Output("trigger-cell-shape-plot", "data"),  # TODO: check if this is the right place to call this
 ],
     [Input("list_of_cells_intermediate", "data"),
      Input("list_of_cells", "data")],
@@ -222,7 +211,6 @@ def update_drop_downs(uploaded_data, cached_data):
                          placeholder="Select cells to merge"),
             dcc.Dropdown(id="drop-down-traces", options=drop_down_list, multi=True,
                          placeholder="Select cells to show their traces"),
-            {"value": True},  # hack to trigger cell shape plot the first time
             ]
 
 
@@ -460,7 +448,7 @@ def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached
 # TODO: find out why this is not always triggered (and I think never by locations_intermediate)
 @app.callback(
     [Output("cell-shape-plot-1", "children")],
-    [Input("trigger-cell-shape-plot", "data"),
+    [Input("startup_trigger", "data"),
      Input("delete-button", "n_clicks")],
     [State("locations_intermediate", "data"),
      State("background_fluorescence", "data"),
@@ -473,40 +461,49 @@ def update_cell_shape_plots(trigger, n_clicks,
                             cells_to_be_deleted,
                             cell_shape_plot,
                             ):
-    ctx = callback_context
     if locations is not None and cell_shape_plot is None:
         print("creating figures for the first time")
-        start_time = time.time()
-        locations_df = pd.read_json(locations)
-        duration = time.time() - start_time
-        print(f"the data took {duration}s to load into a dataframe")
-
-        start_time = time.time()
-        cell_outline_figure = cell_outlines(locations_df, metadata, background=background_fluorescence)
-        duration = time.time() - start_time
-        print(f"that figure took {duration}s to make")
+        location_array = pd.read_json(locations).values
+        cell_outline_figure = contour_plot(locations=location_array,
+                                           background=background_fluorescence)
         return [dcc.Graph(id="cell_outline_graph",
                           figure=cell_outline_figure),
                 ]
 
-    if ctx.triggered[0]['prop_id'].split('.')[0] == "delete-button":
-        raise PreventUpdate
-        # if n_clicks is None:
-        #     print("no delete button clicks, raising PreventUpdate.")
-        #     raise PreventUpdate
-        # if cells_to_be_deleted is None:
-        #     print("no cells selected for deletion, raising PreventUpdate")
-        #     raise PreventUpdate
-        # figure_settings = cell_shape_plot["props"]["figure"]
-        # updated_figure = update_cell_outlines(figure_settings, cells_to_be_deleted)
-        # print("Pushing an update to the figures")
-        # # TODO: the updating of the graph doesn't seem to work... FIX THIS!
-        # return [dcc.Graph(id="cell_outline_graph",
-        #                   figure=updated_figure)
-        #         ]
-    else:
-        print("update_cell_shape_plots was triggered by an unknown, unexpected trigger. raising PreventUpdate")
-        raise PreventUpdate
+    # ctx = callback_context
+    # if locations is not None and cell_shape_plot is None:
+    #     print("creating figures for the first time")
+    #     start_time = time.time()
+    #     locations_df = pd.read_json(locations)  # TODO this can probably be a lot quicker by using a dictionary
+    #     duration = time.time() - start_time
+    #     print(f"the data took {duration}s to load into a dataframe")
+    #
+    #     start_time = time.time()
+    #     cell_outline_figure = cell_outlines(locations_df, metadata, background=background_fluorescence)
+    #     duration = time.time() - start_time
+    #     print(f"that figure took {duration}s to make")
+    #     return [dcc.Graph(id="cell_outline_graph",
+    #                       figure=cell_outline_figure),
+    #             ]
+    #
+    # if ctx.triggered[0]['prop_id'].split('.')[0] == "delete-button":
+    #     raise PreventUpdate
+    #     # if n_clicks is None:
+    #     #     print("no delete button clicks, raising PreventUpdate.")
+    #     #     raise PreventUpdate
+    #     # if cells_to_be_deleted is None:
+    #     #     print("no cells selected for deletion, raising PreventUpdate")
+    #     #     raise PreventUpdate
+    #     # figure_settings = cell_shape_plot["props"]["figure"]
+    #     # updated_figure = update_cell_outlines(figure_settings, cells_to_be_deleted)
+    #     # print("Pushing an update to the figures")
+    #     # # TODO: the updating of the graph doesn't seem to work... FIX THIS!
+    #     # return [dcc.Graph(id="cell_outline_graph",
+    #     #                   figure=updated_figure)
+    #     #         ]
+    # else:
+    #     print("update_cell_shape_plots was triggered by an unknown, unexpected trigger. raising PreventUpdate")
+    #     raise PreventUpdate
 
 
 @app.callback(
