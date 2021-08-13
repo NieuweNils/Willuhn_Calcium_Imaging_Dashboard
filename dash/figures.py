@@ -71,7 +71,6 @@ def slider_base():
         "xanchor": "left",
         "currentvalue": {
             "font": {"size": 20},
-            "prefix": "Cell: ",
             "visible": True,
             "xanchor": "right"
         },
@@ -102,7 +101,7 @@ def drop_down(frame_names):
         'buttons':
             [
                 {"args": [[name], frame_args(0)],
-                 'label': f'Cell {name}',
+                 'label': f'{name[:-13]}', # take off the " + neighbours" part of the name
                  'method': "animate", } for name in frame_names
             ],
         'direction': 'up',
@@ -461,23 +460,37 @@ def line_chart(cells_to_display, traces, layout_base=standard_layout):
     return figure
 
 
-def contour_plot(locations, background, layout_base=standard_layout):
+def contour_plot(locations, background, cells_per_row, layout_base=standard_layout):
     d1, d2 = (len(background), len(background[0]))
     layout_base = copy(layout_base)  # Copy by value instead of reference
 
     # create frames
     contour_coordinates = retrieve_contour_coordinates(locations=locations, background=background)
     frames = []
-    for index, coordinate_vector in enumerate(contour_coordinates):
-        # TODO: make this contour orange?
-        contour_trace = go.Scatter(x=coordinate_vector[:, 0],
-                                   y=coordinate_vector[:, 1],
-                                   mode="lines")
+    for row in cells_per_row:
+        contour_trace = []
+        for cell in row:  # loop through all cells & NaN values
+            if np.isnan(cell):  # fix for it showing old traces in a new frame
+                contour_trace.append(go.Scatter(x=[],
+                                                y=[],
+                                                mode="lines",
+                                                name="NaN"))
+            else:
+                coordinate_vector = contour_coordinates[int(cell)]
+                contour_trace.append(go.Scatter(x=coordinate_vector[:, 0],
+                                                y=coordinate_vector[:, 1],
+                                                mode="lines",
+                                                line={
+                                                    "color": "gold",
+                                                    "width": 4,
+                                                },
+                                                name=f"cell {cell}"))
+        first_cell = int(row[0])
         curr_frame = go.Frame(data=contour_trace,
-                              name=str(index))  # TODO: improve this temporary fix, figure out a naming scheme
+                              name=f"cell {first_cell} + neighbours")  # TODO: check if this still works after locations switches from df to dict
         frames.append(curr_frame)
 
-    frame_names = [str(cell) for cell in list(range(locations.shape[1]))]
+    frame_names = [frame["name"] for frame in frames]
 
     # create layout
     layout = layout_cell_outline_plot(layout_base, frame_names, background, d1, d2)

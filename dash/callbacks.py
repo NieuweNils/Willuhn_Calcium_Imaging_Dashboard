@@ -110,16 +110,22 @@ def upload_data(list_of_contents, list_of_names):
         duration = time.time() - start_time
         print(f"transforming took {duration}s")
 
+        start = time.time()
+        locations_json = locations_df.to_json()
+        distance_json = distance_df.to_json()
+        correlation_json = correlation_df.to_json()
+        neighbour_json = neighbour_df.to_json()
+        print(f"converting to json took {time.time()-start}s")
         # NB!!!!! Do not change traces to a list that does not track the cell number associated with each of the traces
         # (Or the line chart stops working once cells are deleted & merged (indices will change upon del/merge)
-        return [locations_df.to_json(),
+        return [locations_json,
                 trace_dict,
                 background_fluorescence,
                 metadata,
                 list_of_cells,
-                distance_df.to_json(),
-                correlation_df.to_json(),
-                neighbour_df.to_json(),
+                distance_json,
+                correlation_json,
+                neighbour_json,
                 True,
                 ]
     return [None, None, None, None, None, None, None, None]
@@ -459,24 +465,33 @@ def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached
      State("background_fluorescence", "data"),
      State("metadata", "data"),
      State("drop-down-delete", "value"),
-     State("cell-shape-plot-1", "children")],
+     State("cell-shape-plot-1", "children"),
+     State("neighbours", "data"),
+     State("neighbours_intermediate", "data"),
+     ],
 )
 def update_cell_shape_plots(trigger, n_clicks,
                             locations, background_fluorescence, metadata,
                             cells_to_be_deleted,
                             cell_shape_plot,
+                            nb_cached,
+                            nb_upload,
                             ):
     ctx = callback_context
     if locations is not None and cell_shape_plot is None:
         print("creating figures for the first time")
         start_time = time.time()
         location_array = pd.read_json(locations).values  # TODO this can probably be a lot quicker by using a dictionary
+        neighbours = nb_cached if nb_cached else nb_upload
         duration = time.time() - start_time
         print(f"the data took {duration}s to load into an array")
+        neighbour_df = pd.read_json(neighbours)
+        cells_per_row = [neighbour_df.loc[row] for row in neighbour_df.index]
 
         start_time = time.time()
         cell_outline_figure = contour_plot(locations=location_array,
-                                           background=background_fluorescence)
+                                           background=background_fluorescence,
+                                           cells_per_row=cells_per_row)
         duration = time.time() - start_time
         print(f"that figure took {duration}s to make")
         return [dcc.Graph(id="cell_outline_graph",
