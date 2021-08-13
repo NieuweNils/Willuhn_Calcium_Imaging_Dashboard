@@ -484,7 +484,7 @@ def contour_plot(locations, background, cells_per_row, layout_base=standard_layo
                                                     "color": "gold",
                                                     "width": 4,
                                                 },
-                                                name=f"cell {cell}"))
+                                                name=f"cell {int(cell)}"))
         first_cell = int(row[0])
         curr_frame = go.Frame(data=contour_trace,
                               name=f"cell {first_cell} + neighbours")  # TODO: check if this still works after locations switches from df to dict
