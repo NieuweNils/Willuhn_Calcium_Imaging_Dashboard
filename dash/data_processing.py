@@ -264,12 +264,12 @@ def get_centre_of_mass(locations, d1, d2):
     return center_of_mass
 
 
-def retrieve_contour_coordinates(locations, background, thr=None, threshold_method="max", maxthr=0.2, energy_threshold=0.9,
-                      swap_dim=False, colors="orange",
+def retrieve_contour_coordinates(locations, background, thr=None, energy_threshold=0.9,
+                      swap_dim=False,
                       **kwargs):
     """returns the coordinates of the contours of each cell in the locations tensor
 
-       From Caiman: https://github.com/flatironinstitute/CaImlocationsn
+       From Caiman: https://github.com/flatironinstitute/CaImAn
        @author: agiovann
 
      Parameters:
@@ -319,7 +319,6 @@ def retrieve_contour_coordinates(locations, background, thr=None, threshold_meth
     nr_pixels, nr_cells = np.shape(locations)
 
     if thr is not None:
-        threshold_method = 'nrg'
         energy_threshold = thr
         warn("The way to call utilities.plot_contours has changed.")
 
@@ -327,32 +326,24 @@ def retrieve_contour_coordinates(locations, background, thr=None, threshold_meth
 
     contour_coordinates = []
     for i in range(nr_cells):
-        # TODO: check if this is necessary
+        # TODO: check if this is still necessary
         # remove a contour plot if it was already drawn.
         for collection in plt.gca().collections:
             collection.remove()
 
-        if threshold_method == 'nrg':
-            index = np.argsort(locations[:, i], axis=None)[::-1]
-            cum_energy = np.cumsum(locations[:, i].flatten()[index]**2)
-            cum_energy /= cum_energy[-1]  # normalise location vector
-            location_vector = np.zeros(nr_pixels)
-            location_vector[index] = cum_energy
-            thr = energy_threshold
-
-        else:
-            if threshold_method != 'max':
-                warn("Unknown threshold method. Choosing max")
-            location_vector = locations[:, i].flatten()
-            location_vector /= np.max(location_vector)  # normalise location vector
-            thr = maxthr
+        index = np.argsort(locations[:, i], axis=None)[::-1]
+        cum_energy = np.cumsum(locations[:, i].flatten()[index]**2)
+        cum_energy /= cum_energy[-1]  # normalise location vector
+        location_vector = np.zeros(nr_pixels)
+        location_vector[index] = cum_energy
+        thr = energy_threshold
 
         if swap_dim:
             location_matrix = np.reshape(location_vector, np.shape(background), order='C')
         else:
             location_matrix = np.reshape(location_vector, np.shape(background), order='F')
 
-        cell_contour = plt.contour(y, x, location_matrix, [thr], colors=colors)
+        cell_contour = plt.contour(y, x, location_matrix, [thr])
 
         paths = cell_contour.collections[0].get_paths()
         coordinate_vector = np.atleast_2d([np.nan, np.nan])
