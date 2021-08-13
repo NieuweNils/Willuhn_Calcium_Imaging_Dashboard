@@ -511,20 +511,15 @@ def update_cell_shape_plots(trigger, n_clicks,
     State("cell_outline_graph", "figure"),
     State("fluorescence_traces_intermediate", "data"),
     State("fluorescence_traces", "data"),
+    State("trace-plot", "figure"),
     prevent_initial_call=True
 )
 def update_trace_plot(cells_to_display, n_intervals,
-                      cell_outline_figure, traces_uploaded, traces_cached):
+                      cell_outline_figure, traces_uploaded, traces_cached,
+                      trace_figure):
     start = time.time()
     print("update_trace_plot called")
-
-    ctx = callback_context
     # catch exceptions:
-    if ctx.triggered[0]["prop_id"].split(".")[0] == "interval-component":
-        if cells_to_display:
-            raise PreventUpdate
-        if not cell_outline_figure:
-            raise PreventUpdate
     if not (cells_to_display or cell_outline_figure) or traces_uploaded is None:
         raise PreventUpdate
     # load correct traces
@@ -533,16 +528,26 @@ def update_trace_plot(cells_to_display, n_intervals,
     else:
         traces = traces_cached
     # make trace plot
-    if cells_to_display:
-        trace_plot = line_chart(cells_to_display, traces)
-        print(f"update_trace_plot took {time.time()-start}s")
-        return trace_plot
-
-    if cell_outline_figure:
+    if cells_to_display:  # use drop down as source
+        # check what cells are displayed in trace_plot
+        if trace_figure["data"]:
+            cells = []
+            for trace in trace_figure["data"]:
+                cell = int(trace["name"][5:])
+                cells.append(cell)
+            # do nothing if the right cells are displayed
+            if cells == cells_to_display:
+                raise PreventUpdate
+            else:
+                trace_plot = line_chart(cells_to_display, traces)
+                print(f"update_trace_plot took {time.time()-start}s")
+                return trace_plot
+    elif cell_outline_figure:  # use contour plot as source
         selected_cell = cell_outline_figure["layout"]["sliders"][0]["active"]
         trace_plot = line_chart([selected_cell], traces)
         print(f"update_trace_plot took {time.time() - start}s")
         return trace_plot
 
+    print("uncaught exception in update_trace_plot(), check out what's happening")
     raise PreventUpdate
 
