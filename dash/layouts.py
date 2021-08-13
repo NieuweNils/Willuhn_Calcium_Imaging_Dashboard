@@ -506,11 +506,9 @@ double_cell_selector = html.Div([
                 dcc.Store(id="startup_trigger"),
                 dcc.Store(id="correlations"),
                 dcc.Store(id="correlations_intermediate"),
-                dcc.Interval(
-                    id='interval-component',
-                    interval=1500,  # in milliseconds
-                    n_intervals=0
-                )
+                dcc.Interval(id='interval-component-trace-plot',
+                             interval=1500,  # in milliseconds
+                             n_intervals=0),
             ])
 
         ],

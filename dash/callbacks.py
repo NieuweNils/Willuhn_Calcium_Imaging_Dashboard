@@ -459,34 +459,33 @@ def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached
 # TODO: find out why this is not always triggered (and I think never by locations_intermediate)
 @app.callback(
     [Output("cell-shape-plot-1", "children")],
-    [Input("startup_trigger", "data"),
-     Input("delete-button", "n_clicks")],
+    [Input("neighbours", "modified_timestamp"),
+     Input("neighbours_intermediate", "modified_timestamp"),
+     ],
     [State("locations_intermediate", "data"),
      State("background_fluorescence", "data"),
-     State("metadata", "data"),
-     State("drop-down-delete", "value"),
-     State("cell-shape-plot-1", "children"),
      State("neighbours", "data"),
      State("neighbours_intermediate", "data"),
+     State("cell-shape-plot-1", "children"),
      ],
 )
-def update_cell_shape_plots(trigger, n_clicks,
-                            locations, background_fluorescence, metadata,
-                            cells_to_be_deleted,
+def update_cell_shape_plots(ts_nb_cache, ts_nb_upload,
+                            locations, background_fluorescence,
+                            nb_cached, nb_upload,
                             cell_shape_plot,
-                            nb_cached,
-                            nb_upload,
                             ):
-    ctx = callback_context
-    if locations is not None and cell_shape_plot is None:
-        print("creating figures for the first time")
+    neighbours = nb_cached if nb_cached else nb_upload
+    if locations is not None and neighbours is not None:
+        if cell_shape_plot is None:
+            print("creating figures for the first time")
+        if cell_shape_plot is not None:
+            print("updating cell shape plot")
         start_time = time.time()
         location_array = pd.read_json(locations).values  # TODO this can probably be a lot quicker by using a dictionary
-        neighbours = nb_cached if nb_cached else nb_upload
         duration = time.time() - start_time
-        print(f"the data took {duration}s to load into an array")
         neighbour_df = pd.read_json(neighbours)
         cells_per_row = [neighbour_df.loc[row] for row in neighbour_df.index]
+        print(f"the data took {duration}s to load (using dataframes)")
 
         start_time = time.time()
         cell_outline_figure = contour_plot(locations=location_array,
@@ -497,23 +496,7 @@ def update_cell_shape_plots(trigger, n_clicks,
         return [dcc.Graph(id="cell_outline_graph",
                           figure=cell_outline_figure),
                 ]
-
-    if ctx.triggered[0]['prop_id'].split('.')[0] == "delete-button":
-        raise PreventUpdate
-        # if n_clicks is None:
-        #     print("no delete button clicks, raising PreventUpdate.")
-        #     raise PreventUpdate
-        # if cells_to_be_deleted is None:
-        #     print("no cells selected for deletion, raising PreventUpdate")
-        #     raise PreventUpdate
-        # figure_settings = cell_shape_plot["props"]["figure"]
-        # updated_figure = update_cell_outlines(figure_settings, cells_to_be_deleted)
-        # print("Pushing an update to the figures")
-        # # TODO: the updating of the graph doesn't seem to work... FIX THIS!
-        # return [dcc.Graph(id="cell_outline_graph",
-        #                   figure=updated_figure)
-        #         ]
-    else:
+    else:  # no locations, neighbours, or either (neighbours should always be presents thought, right?)
         print("update_cell_shape_plots was triggered by an unknown, unexpected trigger. raising PreventUpdate")
         raise PreventUpdate
 
@@ -521,7 +504,7 @@ def update_cell_shape_plots(trigger, n_clicks,
 @app.callback(
     Output("trace-plot", "figure"),
     [Input("drop-down-traces", "value"),
-     Input("interval-component", "n_intervals")
+     Input("interval-component-trace-plot", "n_intervals")
      ],
     State("cell_outline_graph", "figure"),
     State("fluorescence_traces_intermediate", "data"),
