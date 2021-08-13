@@ -541,8 +541,8 @@ def update_trace_plot(cells_to_display, n_intervals,
                 print(f"update_trace_plot took {time.time()-start}s")
                 return trace_plot
     elif cell_outline_figure:  # use contour plot as source
-        selected_cell = cell_outline_figure["layout"]["sliders"][0]["active"]
-        trace_plot = line_chart([selected_cell], traces)
+        selected_cells = [int(cell["name"][5:-2]) for cell in cell_outline_figure["data"] if cell["name"] != "NaN"]
+        trace_plot = line_chart(selected_cells, traces)
         print(f"update_trace_plot took {time.time() - start}s")
         return trace_plot
 
