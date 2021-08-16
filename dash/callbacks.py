@@ -58,6 +58,7 @@ def parse_data(contents, filename):
 
 
 @app.callback([Output("locations_intermediate", "data"),
+               Output("locations_dict_intermediate", "data"),
                Output("fluorescence_traces_intermediate", "data"),
                Output("background_fluorescence", "data"),
                Output("metadata", "data"),
@@ -92,8 +93,8 @@ def upload_data(list_of_contents, list_of_names):
         loc_dict = {}
         for cell in list_of_cells:
             loc_data = locations[:, cell]
-            loc_data = np.transpose(loc_data, (1, 0))  # store in a more intuitive format
-            loc_dict[cell] = loc_data
+            loc_array = np.squeeze(np.asarray(loc_data))  # lose matrix format
+            loc_dict[cell] = loc_array
 
         number_of_cells = len(fluorescence_traces)
         list_of_cells = list(range(number_of_cells))
@@ -119,6 +120,7 @@ def upload_data(list_of_contents, list_of_names):
         # NB!!!!! Do not change traces to a list that does not track the cell number associated with each of the traces
         # (Or the line chart stops working once cells are deleted & merged (indices will change upon del/merge)
         return [locations_json,
+                loc_dict,
                 trace_dict,
                 background_fluorescence,
                 metadata,
@@ -475,6 +477,7 @@ def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached
      Input("neighbours_intermediate", "modified_timestamp"),
      ],
     [State("locations_intermediate", "data"),
+     State("locations_dict_intermediate", "data"),
      State("background_fluorescence", "data"),
      State("neighbours", "data"),
      State("neighbours_intermediate", "data"),
@@ -482,7 +485,7 @@ def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached
      ],
 )
 def update_cell_shape_plots(ts_nb_cache, ts_nb_upload,
-                            locations, background_fluorescence,
+                            locations, loc_dict, background_fluorescence,
                             nb_cached, nb_upload,
                             cell_shape_plot,
                             ):
@@ -493,14 +496,14 @@ def update_cell_shape_plots(ts_nb_cache, ts_nb_upload,
         if cell_shape_plot is not None:
             print("updating cell shape plot")
         start_time = time.time()
-        location_array = pd.read_json(locations).values  # TODO this can probably be a lot quicker by using a dictionary
-        duration = time.time() - start_time
+        loc_array = np.array([np.array(lst) for lst in loc_dict.values()]).T
         neighbour_df = pd.read_json(neighbours)
+        duration = time.time() - start_time
+        print(f"the data took {duration}s to load (using loc_dict & neighbour_df)")
         cells_per_row = [neighbour_df.loc[row] for row in neighbour_df.index]
-        print(f"the data took {duration}s to load (using dataframes)")
 
         start_time = time.time()
-        cell_outline_figure = contour_plot(locations=location_array,
+        cell_outline_figure = contour_plot(locations=loc_array,
                                            background=background_fluorescence,
                                            cells_per_row=cells_per_row)
         duration = time.time() - start_time
