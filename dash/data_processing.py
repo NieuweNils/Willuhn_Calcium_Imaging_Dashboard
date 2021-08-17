@@ -62,32 +62,19 @@ def get_cols_and_rows(pixel_df, metadata):
     return cols, rows
 
 
-def get_mean_locations(locations_df, metadata):
-    number_of_neurons = locations_df.shape[1]
-    pixel_df = get_pixel_df(locations_df)
-
-    # use dimensions d1 & d2 to figure out where the pixels are
-    # TODO find out how to unpack this vector into (row,col) (even though there's padding)
-    col_df, row_df = get_col_and_row_df(pixel_df, metadata)
-
-    # Calculate the mean values for the dataframe
-    col_df_mean = col_df.mean(axis=1)
-    row_df_mean = row_df.mean(axis=1)
-
-    mean_locations = []
-    for i in range(number_of_neurons):
-        mean_locations.append((col_df_mean[i], row_df_mean[i]))
-    mean_locations_df = pd.DataFrame(mean_locations)
-
-    return mean_locations_df
-
-
-def distances(mean_locations_df):
+def distances(mean_locations_dict):
+    # extract the data from the dictionary
+    mean_locations = np.array([array for array in mean_locations_dict.values()])
+    # make a table of all combinations of neurons
+    neuron_pairs = np.array(list(itertools.combinations(mean_locations_dict.keys(), 2)))
     # Calculate pairwise euclidian distances
-    distance_df = pd.DataFrame(itertools.combinations(mean_locations_df.index, 2), columns=["neuron_1", "neuron_2"])
-    distance_df["distance"] = pdist(mean_locations_df.values, "euclid")
+    pairwise_distance = np.reshape(pdist(mean_locations, "euclid"), [-1, 1])
+    # store the distance with the right combination of cell ids in a 2D np array
+    distance_array = np.append(neuron_pairs,
+                               pairwise_distance,
+                               axis=1)
 
-    return distance_df
+    return distance_array
 
 
 def create_neighbour_dict(distance_correlation_df):
@@ -160,6 +147,13 @@ def delete_locations(df, delete_list):
     return df
 
 
+def delete_locations_dict(loc_dict, delete_list):
+    print("deleting cells from loc_dict")
+    for cell in delete_list:
+        loc_dict.pop(str(cell), None)
+    return loc_dict
+
+
 def delete_traces(trace_dict, delete_list):
     print("deleting cells from traces")
     for cell in delete_list:
@@ -214,6 +208,20 @@ def merge_locations(locations, merge_list):
     return updated_locations
 
 
+def merge_locations_dict(locations, merge_list):
+    print("merging locations (loc_dict)")
+    # take out the locations of the cells that you are merging
+    loc_list = [locations[str(cell)] for cell in merge_list]
+    for cell in merge_list[1:]:  # keep the first one (that one will store the merge)
+        locations.pop(str(cell), None)
+    # take the highest energy in a given pixel to replace the ones you just deleted
+    average_location = np.max(np.array(loc_list), axis=0)
+    locations[str(merge_list[0])] = average_location
+
+    # TODO: also update mean_locations here (and let that trigger update_neighbour_data)
+    return locations
+
+
 def merge_traces(traces, merge_list):
     print("merging cell traces")
     # take out the traces that you are merging
@@ -229,7 +237,7 @@ def merge_traces(traces, merge_list):
     return traces
 
 
-def get_centre_of_mass(locations, d1, d2):
+def get_centre_of_mass(loc_dict, d1, d2):
     """Calculation of the center of mass for spatial components
 
        From Caiman: https://github.com/flatironinstitute/CaImAn
@@ -251,17 +259,22 @@ def get_centre_of_mass(locations, d1, d2):
      center_of_mass:  np.ndarray
           center of mass for spatial components (number_of_cells x 2)
     """
-    nr_of_cells = np.shape(locations)[-1]
+    # extract the data from the dictionary
+    locations = np.array([array for array in loc_dict.values()])
+    nr_of_cells = np.shape(locations)[0]
+    # initalise variables
     coordinates = {'x': np.kron(np.ones((d2, 1)),
                                 np.expand_dims(list(range(d1)), axis=1)),
                    'y': np.kron(np.expand_dims(list(range(d2)), axis=1),
                                 np.ones((d1, 1)))
                    }
     center_of_mass = np.zeros((nr_of_cells, 2))
-    center_of_mass[:, 0] = old_div(np.dot(coordinates['x'].T, locations), locations.sum(axis=0))
-    center_of_mass[:, 1] = old_div(np.dot(coordinates['y'].T, locations), locations.sum(axis=0))
-
-    return center_of_mass
+    # calculate center of mass
+    center_of_mass[:, 0] = old_div(np.dot(coordinates['x'].T, locations.T), locations.sum(axis=1))
+    center_of_mass[:, 1] = old_div(np.dot(coordinates['y'].T, locations.T), locations.sum(axis=1))
+    # put the data in a dictionary
+    center_of_mass_dict = dict(zip(loc_dict.keys(), center_of_mass))
+    return center_of_mass_dict
 
 
 def retrieve_contour_coordinates(locations, background, thr=None, energy_threshold=0.9,

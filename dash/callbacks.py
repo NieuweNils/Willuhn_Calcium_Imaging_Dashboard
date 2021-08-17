@@ -15,7 +15,7 @@ from scipy.io import loadmat, savemat
 
 from app import app
 from data_processing import retrieve_metadata, get_centre_of_mass, distances, correlating_neurons, a_neurons_neighbours, \
-    delete_locations, delete_traces, delete_neighbours, delete_neurons_distances, merge_locations, merge_traces
+    delete_locations, delete_locations_dict, delete_traces, delete_neighbours, delete_neurons_distances, merge_locations, merge_locations_dict, merge_traces
 from figures import cell_outlines, line_chart, correlation_plot, contour_plot
 from formatting import colours, font_family, upload_button_style
 
@@ -102,9 +102,9 @@ def upload_data(list_of_contents, list_of_names):
         for cell in list_of_cells:
             trace_dict[cell] = fluorescence_traces[cell]
 
-        mean_locations = get_centre_of_mass(locations, metadata["d1"], metadata["d2"])
-        mean_locations = pd.DataFrame(mean_locations)
-        distance_df = distances(mean_locations)
+        mean_locations_dict = get_centre_of_mass(loc_dict, metadata["d1"], metadata["d2"])
+        distance_array = distances(mean_locations_dict)
+        distance_df = pd.DataFrame(distance_array)
         correlation_df = correlating_neurons(fluorescence_traces)
         neighbour_df = a_neurons_neighbours(distance_df, correlation_df)
 
@@ -125,7 +125,7 @@ def upload_data(list_of_contents, list_of_names):
                 background_fluorescence,
                 metadata,
                 list_of_cells,
-                distance_json,
+                distance_array,
                 correlation_json,
                 neighbour_json,
                 True,
@@ -239,6 +239,7 @@ def create_delete_and_merge_buttons(timestamp):
 @app.callback(
     [
         Output("locations", "data"),
+        Output("locations_dict", "data"),
         Output("fluorescence_traces", "data"),
         Output("list_of_cells", "data"),
         Output("correlations", "data"),
@@ -249,6 +250,7 @@ def create_delete_and_merge_buttons(timestamp):
     ],
     [
         State("locations_intermediate", "data"),
+        State("locations_dict_intermediate", "data"),
         State("fluorescence_traces_intermediate", "data"),
         State("list_of_cells_intermediate", "data"),
         State("correlations_intermediate", "data"),
@@ -257,6 +259,7 @@ def create_delete_and_merge_buttons(timestamp):
         State("drop-down-merge", "value"),
 
         State("locations", "data"),
+        State("locations_dict", "data"),
         State("fluorescence_traces", "data"),
         State("list_of_cells", "data"),
         State("correlations", "data"),
@@ -264,14 +267,14 @@ def create_delete_and_merge_buttons(timestamp):
     prevent_initial_call=True
 )
 def update_data_stores(n_clicks_del, n_clicks_merge,
-                       uploaded_loc, uploaded_traces, uploaded_cell_list, uploaded_correlations,
+                       uploaded_loc, uploaded_loc_dict, uploaded_traces, uploaded_cell_list, uploaded_correlations,
                        cells_to_be_deleted, cells_to_be_merged,
-                       cached_loc, cached_traces, cached_cell_list, cached_correlations):
+                       cached_loc, cached_loc_dict, cached_traces, cached_cell_list, cached_correlations):
     start = time.time()
     print("update_data_stores called")
     # if there is no data in the Stores, use the uploaded data
-    if cached_loc is None or cached_traces is None or cached_cell_list is None or cached_correlations is None:
-        (cached_loc, cached_traces, cached_cell_list, cached_correlations) = uploaded_loc, uploaded_traces, uploaded_cell_list, uploaded_correlations
+    if cached_loc is None or cached_loc_dict is None or cached_traces is None or cached_cell_list is None or cached_correlations is None:
+        (cached_loc, cached_loc_dict, cached_traces, cached_cell_list, cached_correlations) = uploaded_loc, uploaded_loc_dict, uploaded_traces, uploaded_cell_list, uploaded_correlations
 
     # there is already data in cache, and no one clicked a button:
     ctx = callback_context
@@ -283,10 +286,11 @@ def update_data_stores(n_clicks_del, n_clicks_merge,
         if cells_to_be_deleted:
             locations_df = pd.read_json(cached_loc)
             updated_locations = delete_locations(df=locations_df, delete_list=cells_to_be_deleted).to_json()
+            updated_loc_dict = delete_locations_dict(loc_dict=cached_loc_dict, delete_list=cells_to_be_deleted)
             updated_traces = delete_traces(trace_dict=cached_traces, delete_list=cells_to_be_deleted)
             updated_cell_list = list(updated_traces.keys())
             print(f"update_drop_downs took {time.time() - start}s")
-            return [updated_locations, updated_traces, updated_cell_list, cached_correlations]
+            return [updated_locations, updated_loc_dict, updated_traces, updated_cell_list, cached_correlations]
         else:
             print("no cells to be deleted, raising PreventUpdate")
             raise PreventUpdate
@@ -297,10 +301,11 @@ def update_data_stores(n_clicks_del, n_clicks_merge,
         if cells_to_be_merged:
             locations_df = pd.read_json(cached_loc)
             updated_locations = merge_locations(locations=locations_df, merge_list=cells_to_be_merged).to_json()
+            updated_loc_dict = merge_locations_dict(locations=cached_loc_dict,merge_list=cells_to_be_merged)
             updated_traces = merge_traces(traces=cached_traces, merge_list=cells_to_be_merged)
             updated_cell_list = list(updated_traces.keys())
             print(f"update_drop_downs took {time.time() - start}s")
-            return [updated_locations, updated_traces, updated_cell_list, cached_correlations]
+            return [updated_locations, updated_loc_dict, updated_traces, updated_cell_list, cached_correlations]
         else:
             print("no cells to be merged, raising PreventUpdate")
             raise PreventUpdate
@@ -308,8 +313,8 @@ def update_data_stores(n_clicks_del, n_clicks_merge,
 
 @app.callback(
     Output("distance", "data"),
-    Input("locations", "modified_timestamp"),
-    [State("locations", "data"),
+    Input("locations_dict", "modified_timestamp"),
+    [State("locations_dict", "data"),
      State("metadata", "data"),
      ],
     prevent_initial_call=True,
@@ -317,13 +322,11 @@ def update_data_stores(n_clicks_del, n_clicks_merge,
 def update_distance(timestamp, locations, metadata):
     print("update_distance called")
     start = time.time()
-    mean_locations = get_centre_of_mass(locations, metadata["d1"], metadata["d2"])
-    mean_locations = pd.DataFrame(mean_locations)
-    distance_df = distances(mean_locations)
-    distance_json = distance_df.to_json()
+    mean_locations = get_centre_of_mass(loc_dict=locations, d1=metadata["d1"], d2=metadata["d2"])
+    distance_array = distances(mean_locations_dict=mean_locations)
     print(f"update_distance took {time.time() - start}s")
 
-    return distance_json
+    return distance_array
 
 
 
