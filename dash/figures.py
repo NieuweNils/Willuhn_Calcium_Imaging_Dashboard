@@ -3,12 +3,11 @@ import io
 from copy import copy
 
 import numpy as np
-import pandas as pd
 import plotly.graph_objs as go
 from PIL import Image
 
-from data_processing import get_pixel_df, get_cols_and_rows, retrieve_contour_coordinates
-from formatting import standard_layout, colours, font_family
+from data_processing import retrieve_contour_coordinates
+from formatting import standard_layout
 
 
 def generatorify(tiff_data, skip_rate=1):
@@ -180,81 +179,6 @@ def animated_heatmap(data, layout_base=standard_layout, skip_rate=1):
     return heatmap
 
 
-# CELL LOCATIONS
-
-
-def transform_data_cell_outline_plot(locations_df, metadata):
-    d1 = metadata['d1']  # height of recording in #pixels
-    d2 = metadata['d2']  # width of recording in #pixels
-    pixel_df = get_pixel_df(locations_df)
-    cols, rows = get_cols_and_rows(pixel_df, metadata)
-    neuron_positions = np.stack((rows, cols))
-    number_of_cells = neuron_positions.shape[1]
-
-    return neuron_positions, number_of_cells, d1, d2
-
-
-def find_pixels(neuron_positions, cell_number):
-    neuron_position = neuron_positions[:, cell_number, :]
-    neuron_position = neuron_position[~np.isnan(neuron_position)]
-    amount_of_pixels = int(neuron_position.shape[0] / 2)
-    neuron_position = np.reshape(neuron_position, (2, amount_of_pixels))
-
-    return neuron_position, amount_of_pixels
-
-
-def make_outline_image(amount_of_pixels, neuron_position, d1, d2, starting_image=None, value_if_present=2.0):
-    if starting_image is None:
-        transparent_background = np.full([d1, d2], np.nan)
-        image_neuron = transparent_background
-    else:
-        image_neuron = np.array(starting_image)  # TODO: see if this step can be skipped by an overlay of heatmaps
-
-    for j in range(amount_of_pixels):
-        row = int(neuron_position[0, j])
-        col = int(neuron_position[1, j])
-        image_neuron[row, col] = value_if_present
-    return image_neuron
-
-
-def gray_heatmap(image, layout_base=standard_layout):
-    return go.Figure(
-            data=go.Heatmap(
-                z=image,
-                colorscale='gray'),
-            layout=layout_base,
-            )
-
-
-def frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2, background):
-    frames = []
-    frame_names = []
-    for cell_number in range(number_of_cells):
-        neuron_position, amount_of_pixels = find_pixels(neuron_positions, cell_number)
-        image_neuron = make_outline_image(amount_of_pixels,
-                                          neuron_position,
-                                          d1,
-                                          d2,
-                                          starting_image=background)
-        frame_name = str(cell_number)
-        curr_frame = go.Frame(data=[go.Heatmap(z=image_neuron,
-                                               colorscale=[
-                                                   [0, 'rgb(0, 0, 0)'],  # black background
-                                                   [0.1, 'rgb(50, 50, 50)'],
-                                                   [0.2, 'rgb(100, 100, 100)'],
-                                                   [0.3, 'rgb(150, 150, 150)'],
-                                                   [0.4, 'rgb(200, 200, 200)'],
-                                                   [0.5, 'rgb(250, 250, 250)'],  # white background
-                                                   [1.0, 'rgb(255,255,0)'],  # yellow (for highlighted cell)
-                                               ],
-                                               )],
-                              name=frame_name)  # VERY IMPORTANT: FRAME NAMES==SLIDER STEP NAMES==DROP DOWN NAMES
-        frames.append(curr_frame)
-        frame_names.append(frame_name)
-
-    return frames, frame_names
-
-
 def layout_cell_outline_plot(layout, frame_names, background, d1, d2):
     slider_dict = slider_base()
     slider_dict["steps"] = slider_steps(frame_names)
@@ -287,113 +211,6 @@ def layout_cell_outline_plot(layout, frame_names, background, d1, d2):
     ]
 
     return layout
-
-
-def cell_outlines(locations_df, metadata, background=None, layout_base=standard_layout):
-    """
-    :param locations_df: a pandas dataframe with locations of each neuron, as stored in the the matlab variable "A"
-    in the output of the CNMF_E algorithm
-    :param metadata: a dictionary with all "options" variables, retrieved from the the matlab variable "options" in the
-     output of the CNMF_E algorithm
-    :param background:
-    :param layout_base: a custom layout (    either a dict or a plotly layout object). default is a standard layout,
-    imported from the "formatting" library
-    :return: a plotly.Figure object containing plotly.graph_obj.Heatmap objects displaying the location of the neurons
-    """
-    layout_base = copy(layout_base)  # Copy by value instead of reference
-    # create frames
-    neuron_positions, number_of_cells, d1, d2 = transform_data_cell_outline_plot(locations_df, metadata)
-    frames, frame_names = frames_cell_outline_plot(number_of_cells, neuron_positions, d1, d2, background)
-    first_frame = frames[0]['data']
-    # create layout
-    layout = layout_cell_outline_plot(layout_base, frame_names, d1, d2)
-    # Assemble figure
-    figure = go.Figure(data=first_frame,
-                       layout=layout,
-                       frames=frames)
-
-    return figure
-
-
-def update_cell_outlines(figure_dict, cells_to_be_deleted):
-    # make a list of the cells that should remain after the deletion
-    cells_to_keep = [int(frame['name']) for frame in figure_dict["frames"]]
-    for cell in cells_to_be_deleted:
-        cells_to_keep.remove(cell)
-    # keep the setting for the cells_to_keep (==discard those for cells_to_be_deleted)
-    print("deleting frames from figure")
-    for fig in [figure_dict]:
-        fig["frames"] = [frame for frame in fig["frames"] if int(frame["name"]) in cells_to_keep]
-        fig["data"][0] = fig["frames"][0]["data"][0]
-        steps = fig["layout"]["sliders"][0]["steps"]
-        buttons = fig["layout"]["updatemenus"][0]["buttons"]  # the drop down menu
-        fig["layout"]["sliders"][0]["steps"] = [step for step in steps if int(step["label"]) in cells_to_keep]
-        fig["layout"]["updatemenus"][0]["buttons"] = [btn for btn in buttons if int(btn["label"][5:]) in cells_to_keep]
-
-        print("making an updated figure")
-    return go.Figure(figure_dict)
-
-
-def frames_double_cells_outline_plot(neuron_positions, neighbours_df, d1, d2):
-    frames = []
-    frame_names = []
-    cells_with_neighbours = neighbours_df['neuron']
-
-    for index, cell_number in enumerate(cells_with_neighbours):
-        # make image of the cell itself
-        neuron_position, amount_of_pixels = find_pixels(neuron_positions, cell_number)
-        image_neuron = make_outline_image(amount_of_pixels,
-                                          neuron_position,
-                                          d1,
-                                          d2)
-        # add neighbours in gray
-        neighbours = neighbours_df[neighbours_df['neuron'] == cell_number].values
-        neighbours = neighbours[~pd.isnull(neighbours)]
-        neighbours = neighbours[1:, ]  # drop first column, that's the neuron itself
-        for neighbour in neighbours:
-            position_neighbour, amount_of_pixels_neighbour = find_pixels(neuron_positions, int(neighbour))
-            image_including_neighbours = make_outline_image(amount_of_pixels_neighbour,
-                                                            position_neighbour,
-                                                            d1,
-                                                            d2,
-                                                            starting_image=image_neuron,
-                                                            value_if_present=0.7)
-        frame_name = str(cell_number)
-        curr_frame = go.Frame(data=[go.Heatmap(z=image_including_neighbours,
-                                               colorscale=[
-                                                   [0, 'rgb(0, 0, 0)'],  # black background
-                                                   [0.1, 'rgb(50, 50, 50)'],
-                                                   [0.2, 'rgb(100, 100, 100)'],
-                                                   [0.3, 'rgb(150, 150, 150)'],
-                                                   [0.4, 'rgb(200, 200, 200)'],
-                                                   [0.5, 'rgb(250, 250, 250)'],  # white background
-                                                   [1.0, 'rgb(255,255,0)'],  # yellow (for highlighted cell)
-                                               ],)],
-                              name=frame_name)  # VERY IMPORTANT: FRAME NAMES==SLIDER STEP NAMES==DROP DOWN NAMES
-        frames.append(curr_frame)
-        frame_names.append(frame_name)
-
-    return frames, frame_names
-
-
-def cell_outlines_double_cells(locations_df, neighbours_df, metadata, layout_base=standard_layout):
-    """
-    :param locations_df: a pandas dataframe with locations of each neuron, as stored in the the matlab variable "A" in the output of the CNMF_E algorithm
-    :param neighbours_df: a pandas dataframe with for each cell that has close neighbouring cells, which cells those are
-    :param metadata: a dictionary with all "options" variables, retrieved from  the the matlab variable "options" in the output of the CNMF_E algorithm
-    :param layout_base: a custom layout (either a dict or a plotly layout object). default is a standard layout, imported from the "formatting" library
-    :return: a plotly.Figure object containing plotly.graph_obj.Heatmap objects displaying the location of the neurons
-    """
-    layout_base = copy(layout_base)  # Copy by value instead of reference
-    # create frames
-    neuron_positions, _, d1, d2 = transform_data_cell_outline_plot(locations_df, metadata)
-    frames, frame_names = frames_double_cells_outline_plot(neuron_positions, neighbours_df, d1, d2)
-    first_frame = frames[0]['data']
-    # create layout
-    layout = layout_cell_outline_plot(layout_base, frame_names, d1, d2)
-    # Assemble figure
-    figure = go.Figure(data=first_frame, layout=layout, frames=frames)
-    return figure
 
 
 def correlation_plot(cell_list, correlation_df, distances, min_correlation=0.2, max_distance=10, layout_base=standard_layout):

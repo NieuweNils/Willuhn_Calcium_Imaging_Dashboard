@@ -14,9 +14,9 @@ from scipy.io import loadmat, savemat
 
 
 from app import app
-from data_processing import retrieve_metadata, get_centre_of_mass, distances, correlating_neurons, a_neurons_neighbours, \
-    delete_locations, delete_locations_dict, delete_traces, delete_neighbours, delete_neurons_distances, merge_locations, merge_locations_dict, merge_traces
-from figures import cell_outlines, line_chart, correlation_plot, contour_plot
+from data_processing import retrieve_metadata, get_centre_of_mass, distances, correlating_neurons, \
+    a_neurons_neighbours, delete_locations_dict, delete_traces,merge_locations_dict, merge_traces
+from figures import line_chart, correlation_plot, contour_plot
 from formatting import colours, font_family, upload_button_style
 
 

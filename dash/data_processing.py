@@ -29,39 +29,6 @@ def retrieve_metadata(data_after_cnmf_e):
     return metadata
 
 
-def get_pixel_df(locations_df):
-    number_of_neurons = locations_df.shape[1]
-    non_zero_df = locations_df[locations_df != 0]
-    pixels_containing_neurons_stack = non_zero_df.stack()
-
-    # Select rows (pixels) that contain the column (neuron) of interest
-    # TODO: Factorise this?
-    pixels_all_neurons = []
-    for i in range(number_of_neurons):
-        pixels = [pixel for (pixel, neuron) in pixels_containing_neurons_stack.keys() if neuron == i]
-        pixels_all_neurons.append(pixels)
-
-    # Put data in a dataframe
-    # NB: this pads the shorter lists with NaNs
-    # TODO: Factorise this? (use numpy in 3d instead of pandas Dataframe)
-    pixel_df = pd.DataFrame(pixels_all_neurons)
-    return pixel_df
-
-
-def get_col_and_row_df(pixel_df, metadata):
-    d1 = metadata["d1"]  # width of recording in #pixels (or was it height?)
-    col_df = pixel_df.apply(lambda x: x // d1)
-    row_df = pixel_df.apply(lambda x: x % d1)
-    return col_df, row_df
-
-
-def get_cols_and_rows(pixel_df, metadata):
-    col_df, row_df = get_col_and_row_df(pixel_df, metadata)
-    cols = np.array(col_df)
-    rows = np.array(row_df)
-    return cols, rows
-
-
 def distances(mean_locations_dict):
     # extract the data from the dictionary
     mean_locations = np.array([array for array in mean_locations_dict.values()])
@@ -145,12 +112,6 @@ def correlating_neurons(fluorescence_traces):
     return correlation_df
 
 
-def delete_locations(df, delete_list):
-    print("deleting cells from locations_df")
-    df = df.drop(delete_list, axis=1)  # pixel locations are stored column based (for a reason I don't remember)
-    return df
-
-
 def delete_locations_dict(loc_dict, delete_list):
     print("deleting cells from loc_dict")
     for cell in delete_list:
@@ -163,53 +124,6 @@ def delete_traces(trace_dict, delete_list):
     for cell in delete_list:
         trace_dict.pop(str(cell), None)
     return trace_dict
-
-
-def delete_neighbours(df, delete_list):
-    print("deleting cells from neighbours_df")
-    # take out the cells in the delete_list
-    df = df[~df.isin(delete_list)]
-    # drop all rows that are completely empty
-    df = df.dropna(how="all")
-    # shift all the values to the left that were next to NaN values
-    df = df.apply(lambda row: shift_away_nans(row), axis=1)
-    # drop all cols that are completely empty
-    df = df.dropna(how="all", axis=1)
-    return df
-
-
-def delete_neurons_distances(df, delete_list):
-    print("deleting cells from distance_df")
-    df = df[~df["neuron_1"].isin(delete_list)]
-    df = df[~df["neuron_2"].isin(delete_list)]
-
-    return df
-
-
-def shift_away_nans(row):
-    passed_nan = False
-    passed_value = False
-    for i in range(len(row)-1, -1, -1):  # NB: looping from the end of the array to the beginning (stop after 0 (# -1))
-        if row[i] is None or np.isnan(row[i]):  # index is NaN, might shift this # NB: stupid dash changes stuff to None
-            if passed_value:
-                row = row[:i].append(row[i:].shift(-1, fill_value=np.nan))
-            if not passed_nan:
-                passed_nan = True
-        else:  # index contains a value, not shifting this
-            if not passed_value:
-                passed_value = True
-    return row
-
-
-def merge_locations(locations, merge_list):
-    print("merging locations")
-    # take out the locations of the cells that you are merging
-    updated_locations = locations.drop(merge_list[1:], axis=1)  # pixel locations are column based (don't remember why)
-    # update first cell in list with updated locations
-    merged_locations = locations[merge_list].max(axis=1)  # make a pixel 2 that is 2 in at least 1 cell
-    updated_locations[merge_list[0]] = merged_locations
-    # TODO: also update mean_locations here (and let that trigger update_neighbour_data)
-    return updated_locations
 
 
 def merge_locations_dict(locations, merge_list):
