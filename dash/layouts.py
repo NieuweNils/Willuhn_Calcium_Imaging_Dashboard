@@ -491,7 +491,6 @@ double_cell_selector = html.Div([
                 ),
                 # TODO: rename the intermediates to "initial", and the others to "updates"
                 dcc.Store(id="locations"),
-                dcc.Store(id="locations_intermediate"),
                 dcc.Store(id="locations_dict"),
                 dcc.Store(id="locations_dict_intermediate"),
                 dcc.Store(id="fluorescence_traces"),

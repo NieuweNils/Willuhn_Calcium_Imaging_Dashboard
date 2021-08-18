@@ -77,12 +77,12 @@ def distances(mean_locations_dict):
     return distance_array
 
 
-def create_neighbour_dict(distance_correlation_df):
+def create_neighbour_dict(distance_correlation_table):
     neighbour_dict = {}
     new_row = 0
 
     # fill the dictionary as such: {key: value} -> {cell_number: row_number}
-    for (neuron1, neuron2, *_) in distance_correlation_df.values:
+    for (neuron1, neuron2, *_) in distance_correlation_table:
         if neuron1 not in neighbour_dict:
             if neuron2 not in neighbour_dict:
                 # neither neurons are associated with a previous row, assign to new row
@@ -104,15 +104,17 @@ def create_neighbour_dict(distance_correlation_df):
     return neighbour_dict
 
 
-def a_neurons_neighbours(distance_df, correlation_df, max_distance=10, min_correlation=0.0):
+def a_neurons_neighbours(distance_array, correlation_df, max_distance=10, min_correlation=0.0):
+    # create table with distances and correlations
     correlation_series = correlation_df.stack()
+    corr_array = np.reshape(np.array(correlation_series), [-1, 1])
+    dist_array = distance_array
+    dist_corr_array = np.append(dist_array, corr_array, axis=1)
+    # filter to keep cells close enough to each other and with high enough correlation
+    close_array = dist_corr_array[dist_corr_array[:, 2] < max_distance]
+    neighbour_array = close_array[close_array[:, 3] > min_correlation]
 
-    df = distance_df
-    df['correlation'] = correlation_series.values
-    df = df[df['distance'] < max_distance]
-    df = df[df['correlation'] > min_correlation]
-
-    neighbour_dict = create_neighbour_dict(df)
+    neighbour_dict = create_neighbour_dict(neighbour_array)
     rows = set(neighbour_dict.values())
     # Create the table as a list of lists
     neighbours = []
@@ -131,10 +133,12 @@ def a_neurons_neighbours(distance_df, correlation_df, max_distance=10, min_corre
 
 
 def correlating_neurons(fluorescence_traces):
-    correlation_matrix = np.corrcoef(fluorescence_traces)
+    cell_numbers = fluorescence_traces.keys()
+    trace_values = np.array([array for array in fluorescence_traces.values()])
+    correlation_matrix = np.corrcoef(trace_values)
     correlation_matrix = np.absolute(correlation_matrix)
 
-    correlation_df = pd.DataFrame(correlation_matrix)
+    correlation_df = pd.DataFrame(correlation_matrix, columns=cell_numbers, index=cell_numbers)
     # Discard the lower left triangle as all correlation values will end up as doubles (includes the diagonal of 1.0's)
     correlation_df = correlation_df.where(np.triu(np.ones(correlation_matrix.shape), k=1).astype(np.bool))
 

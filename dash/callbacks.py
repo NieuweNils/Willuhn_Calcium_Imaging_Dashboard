@@ -57,8 +57,7 @@ def parse_data(contents, filename):
     return locations, fluorescence_traces, background_fluorescence, options
 
 
-@app.callback([Output("locations_intermediate", "data"),
-               Output("locations_dict_intermediate", "data"),
+@app.callback([Output("locations_dict_intermediate", "data"),
                Output("fluorescence_traces_intermediate", "data"),
                Output("background_fluorescence", "data"),
                Output("metadata", "data"),
@@ -86,8 +85,6 @@ def upload_data(list_of_contents, list_of_names):
         print("transforming the data")
         start_time = time.time()
 
-        locations_df = pd.DataFrame(locations)
-
         number_of_cells = locations.shape[1]
         list_of_cells = list(range(number_of_cells))
         loc_dict = {}
@@ -104,23 +101,19 @@ def upload_data(list_of_contents, list_of_names):
 
         mean_locations_dict = get_centre_of_mass(loc_dict, metadata["d1"], metadata["d2"])
         distance_array = distances(mean_locations_dict)
-        distance_df = pd.DataFrame(distance_array)
-        correlation_df = correlating_neurons(fluorescence_traces)
-        neighbour_df = a_neurons_neighbours(distance_df, correlation_df)
+        correlation_df = correlating_neurons(fluorescence_traces=trace_dict)
+        neighbour_df = a_neurons_neighbours(distance_array, correlation_df)
 
         duration = time.time() - start_time
         print(f"transforming took {duration}s")
 
         start = time.time()
-        locations_json = locations_df.to_json()
-        distance_json = distance_df.to_json()
         correlation_json = correlation_df.to_json()
         neighbour_json = neighbour_df.to_json()
         print(f"converting to json took {time.time()-start}s")
         # NB!!!!! Do not change traces to a list that does not track the cell number associated with each of the traces
         # (Or the line chart stops working once cells are deleted & merged (indices will change upon del/merge)
-        return [locations_json,
-                loc_dict,
+        return [loc_dict,
                 trace_dict,
                 background_fluorescence,
                 metadata,
@@ -136,7 +129,7 @@ def upload_data(list_of_contents, list_of_names):
 @app.callback(
     Output("download-data", "data"),
     Input("download-button", "n_clicks"),
-    [State("locations", "data"),
+    [State("locations_dict", "data"),
      State("fluorescence_traces", "data"),
      State("background_fluorescence", "data"),
      State("metadata", "data"),
@@ -144,13 +137,13 @@ def upload_data(list_of_contents, list_of_names):
      ],
     prevent_initial_call=True,
 )
-def download_data(n_clicks, locations, traces, background, metadata, neighbours):
+def download_data(n_clicks, loc_dict, traces, background, metadata, neighbours):
     if n_clicks is None:
         raise PreventUpdate
-    loc_array = pd.read_json(locations).to_numpy(dtype="float", na_value=np.nan)
+    loc_array = np.array([array for array in loc_dict.values()])  # TODO: check if I need to reshape this back to original format.
     nb_array = pd.read_json(neighbours).to_numpy(dtype="float", na_value=np.nan)
     processed_data = {
-        "locations": loc_array,  # this should be a list for speed optimization (no dataframe.to_json)
+        "locations": loc_array,
         "traces": traces,
         "background": background,
         "metadata": metadata,
@@ -238,7 +231,6 @@ def create_delete_and_merge_buttons(timestamp):
 # TODO: change to not use cached_STH in the end
 @app.callback(
     [
-        Output("locations", "data"),
         Output("locations_dict", "data"),
         Output("fluorescence_traces", "data"),
         Output("list_of_cells", "data"),
@@ -249,7 +241,6 @@ def create_delete_and_merge_buttons(timestamp):
         Input("merge-button", "n_clicks"),
     ],
     [
-        State("locations_intermediate", "data"),
         State("locations_dict_intermediate", "data"),
         State("fluorescence_traces_intermediate", "data"),
         State("list_of_cells_intermediate", "data"),
@@ -258,7 +249,6 @@ def create_delete_and_merge_buttons(timestamp):
         State("drop-down-delete", "value"),
         State("drop-down-merge", "value"),
 
-        State("locations", "data"),
         State("locations_dict", "data"),
         State("fluorescence_traces", "data"),
         State("list_of_cells", "data"),
@@ -267,14 +257,14 @@ def create_delete_and_merge_buttons(timestamp):
     prevent_initial_call=True
 )
 def update_data_stores(n_clicks_del, n_clicks_merge,
-                       uploaded_loc, uploaded_loc_dict, uploaded_traces, uploaded_cell_list, uploaded_correlations,
+                       uploaded_loc_dict, uploaded_traces, uploaded_cell_list, uploaded_correlations,
                        cells_to_be_deleted, cells_to_be_merged,
-                       cached_loc, cached_loc_dict, cached_traces, cached_cell_list, cached_correlations):
+                       cached_loc_dict, cached_traces, cached_cell_list, cached_correlations):
     start = time.time()
     print("update_data_stores called")
     # if there is no data in the Stores, use the uploaded data
-    if cached_loc is None or cached_loc_dict is None or cached_traces is None or cached_cell_list is None or cached_correlations is None:
-        (cached_loc, cached_loc_dict, cached_traces, cached_cell_list, cached_correlations) = uploaded_loc, uploaded_loc_dict, uploaded_traces, uploaded_cell_list, uploaded_correlations
+    if cached_loc_dict is None or cached_traces is None or cached_cell_list is None or cached_correlations is None:
+        (cached_loc_dict, cached_traces, cached_cell_list, cached_correlations) = uploaded_loc_dict, uploaded_traces, uploaded_cell_list, uploaded_correlations
 
     # there is already data in cache, and no one clicked a button:
     ctx = callback_context
@@ -284,13 +274,12 @@ def update_data_stores(n_clicks_del, n_clicks_merge,
             raise PreventUpdate
         # delete the cells
         if cells_to_be_deleted:
-            locations_df = pd.read_json(cached_loc)
-            updated_locations = delete_locations(df=locations_df, delete_list=cells_to_be_deleted).to_json()
             updated_loc_dict = delete_locations_dict(loc_dict=cached_loc_dict, delete_list=cells_to_be_deleted)
             updated_traces = delete_traces(trace_dict=cached_traces, delete_list=cells_to_be_deleted)
             updated_cell_list = list(updated_traces.keys())
+            updated_correlations = correlating_neurons(updated_traces).to_json()
             print(f"update_drop_downs took {time.time() - start}s")
-            return [updated_locations, updated_loc_dict, updated_traces, updated_cell_list, cached_correlations]
+            return [updated_loc_dict, updated_traces, updated_cell_list, updated_correlations]
         else:
             print("no cells to be deleted, raising PreventUpdate")
             raise PreventUpdate
@@ -299,13 +288,12 @@ def update_data_stores(n_clicks_del, n_clicks_merge,
             print("no button clicks, raising PreventUpdate.")
             raise PreventUpdate
         if cells_to_be_merged:
-            locations_df = pd.read_json(cached_loc)
-            updated_locations = merge_locations(locations=locations_df, merge_list=cells_to_be_merged).to_json()
             updated_loc_dict = merge_locations_dict(locations=cached_loc_dict,merge_list=cells_to_be_merged)
             updated_traces = merge_traces(traces=cached_traces, merge_list=cells_to_be_merged)
             updated_cell_list = list(updated_traces.keys())
+            updated_correlations = correlating_neurons(updated_traces).to_json()
             print(f"update_drop_downs took {time.time() - start}s")
-            return [updated_locations, updated_loc_dict, updated_traces, updated_cell_list, cached_correlations]
+            return [updated_loc_dict, updated_traces, updated_cell_list, updated_correlations]
         else:
             print("no cells to be merged, raising PreventUpdate")
             raise PreventUpdate
@@ -359,9 +347,9 @@ def update_neighbour_data(n_clicks, timestamp_dist, timestamp_cor,
     distance_table = dist_cached if (dist_cached is not None) else dist_upload
     correlation_table = cor_cached if (cor_cached is not None) else cor_upload
 
-    distance_df = pd.read_json(distance_table)
+    distance_array = np.array([[float(entry) for entry in array] for array in distance_table])  # because dash makes everything into a string for some reason
     correlation_df = pd.read_json(correlation_table)
-    neighbour_df = a_neurons_neighbours(distance_df, correlation_df,
+    neighbour_df = a_neurons_neighbours(distance_array, correlation_df,
                                         max_distance=distance if distance else 10,
                                         min_correlation=float(correlation) if correlation else 0.1)
     neighbour_json = neighbour_df.to_json()
@@ -460,9 +448,9 @@ def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached
     distance_table = dist_uploaded if (dist_cached is None) else dist_cached
 
     if correlations is not None and distance_table is not None:
-        distance_df = pd.read_json(distance_table)
+        distance_array = np.array([[float(entry) for entry in array] for array in distance_table])  # because dash stores these nested list entries as strings for some reason
         correlation_df = pd.read_json(correlations)
-        figure = correlation_plot(cell_list, correlation_df, distance_df,
+        figure = correlation_plot(cell_list, correlation_df, distance_array,
                                   min_correlation=float(correlation) if correlation != "" else 0.1,
                                   max_distance=distance if distance != "" else 10)
         return dcc.Graph(figure=figure,
@@ -479,8 +467,7 @@ def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached
     [Input("neighbours", "modified_timestamp"),
      Input("neighbours_intermediate", "modified_timestamp"),
      ],
-    [State("locations_intermediate", "data"),
-     State("locations_dict_intermediate", "data"),
+    [State("locations_dict_intermediate", "data"),
      State("background_fluorescence", "data"),
      State("neighbours", "data"),
      State("neighbours_intermediate", "data"),
@@ -488,12 +475,12 @@ def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached
      ],
 )
 def update_cell_shape_plots(ts_nb_cache, ts_nb_upload,
-                            locations, loc_dict, background_fluorescence,
+                            loc_dict, background_fluorescence,
                             nb_cached, nb_upload,
                             cell_shape_plot,
                             ):
     neighbours = nb_cached if nb_cached else nb_upload
-    if locations is not None and neighbours is not None:
+    if loc_dict is not None and neighbours is not None:
         if cell_shape_plot is None:
             print("creating figures for the first time")
         if cell_shape_plot is not None:

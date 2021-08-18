@@ -400,9 +400,9 @@ def correlation_plot(cell_list, correlation_df, distances, min_correlation=0.2, 
     # Discard correlation values below threshold
     highly_correlating_neurons = correlation_df[correlation_df > min_correlation]
     # Discard non-neighbours
-    neighbours = distances[distances["distance"] < max_distance]
-    cells_to_select_row = set(neighbours["neuron_1"])
-    cells_to_select_col = set(neighbours["neuron_2"])
+    neighbours = distances[distances[:, 2] < max_distance]
+    cells_to_select_row = set(neighbours[:, 0])
+    cells_to_select_col = set(neighbours[:, 1])
     correlating_neighbours = highly_correlating_neurons.loc[cells_to_select_row][cells_to_select_col]
     correlating_neighbours = correlating_neighbours.dropna(how="all").dropna(how="all", axis=1)
     # TODO: add bit here that discards correlations of neurons that are not pairs in distance_df
