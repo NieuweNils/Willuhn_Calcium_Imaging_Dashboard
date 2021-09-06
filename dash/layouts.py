@@ -489,6 +489,15 @@ double_cell_selector = html.Div([
                     ),
                 ], className="row"
                 ),
+                html.Div([
+                    html.Div([
+                        html.Div(id="send-to-delete-list-button-placeholder"),
+                        html.Div(id="send-to-merge-list-button-placeholder")],
+                        id="multi-action-buttons",
+                        className="col-4"
+                    ),
+                    ], className="row"
+                ),
                 # TODO: rename the intermediates to "initial", and the others to "updates"
                 dcc.Store(id="locations"),
                 dcc.Store(id="locations_dict"),

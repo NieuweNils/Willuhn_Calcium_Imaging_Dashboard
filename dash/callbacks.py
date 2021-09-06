@@ -468,6 +468,7 @@ def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached
      Input("neighbours_intermediate", "modified_timestamp"),
      ],
     [State("locations_dict_intermediate", "data"),
+     State("locations_dict", "data"),
      State("background_fluorescence", "data"),
      State("neighbours", "data"),
      State("neighbours_intermediate", "data"),
@@ -475,11 +476,13 @@ def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached
      ],
 )
 def update_cell_shape_plots(ts_nb_cache, ts_nb_upload,
-                            loc_dict, background_fluorescence,
+                            loc_upload, loc_cached,
+                            background_fluorescence,
                             nb_cached, nb_upload,
                             cell_shape_plot,
                             ):
     neighbours = nb_cached if nb_cached else nb_upload
+    loc_dict = loc_cached if loc_cached else loc_upload
     if loc_dict is not None and neighbours is not None:
         if cell_shape_plot is None:
             print("creating figures for the first time")
@@ -503,6 +506,59 @@ def update_cell_shape_plots(ts_nb_cache, ts_nb_upload,
                 ]
     else:  # no locations, neighbours, or either (neighbours should always be presents thought, right?)
         print("update_cell_shape_plots was triggered by an unknown, unexpected trigger. raising PreventUpdate")
+        raise PreventUpdate
+
+
+@app.callback(
+    [Output("send-to-delete-list-button-placeholder", "children"),
+     Output("send-to-merge-list-button-placeholder", "children")],
+    Input("cell_outline_graph", "figure"),
+    [State("send-to-delete-list-button-placeholder", "children"),
+     State("send-to-merge-list-button-placeholder", "children")],
+    prevent_initial_call=True,
+)
+def create_send_to_delete_and_merge_list_buttons(figure, del_btn, merge_btn):
+    print("create_send_to_delete_and_merge_list_buttons called")
+    if figure:
+        if not del_btn or merge_btn:
+            print("creating send_to_list_buttons")
+            return [html.Button("Add selected cells to delete list", id="delete-list-button", style=upload_button_style),
+                    html.Button("Add selected cells to merge list", id="merge-list-button", style=upload_button_style)]
+    else:
+        print("preventing update of send_to_list_buttons")
+        raise PreventUpdate
+
+
+@app.callback(
+    Output("drop-down-delete", "value"),
+    Input("delete-list-button", "n_clicks"),
+    [State("cell_outline_graph", "figure"),
+     State("drop-down-delete", "value")],
+    prevent_initial_call=True,
+)
+def send_to_delete_list(n_clicks,
+                        cell_outline_figure, curr_drop_down):
+    if n_clicks:
+        if cell_outline_figure:
+            selected_cells = [int(cell["name"][5:]) for cell in cell_outline_figure["data"] if cell["name"] != "NaN"]
+            new_drop_down = (list(curr_drop_down) + selected_cells) if curr_drop_down else selected_cells
+            return new_drop_down
+    else:
+        raise PreventUpdate
+
+
+@app.callback(
+    Output("drop-down-merge", "value"),
+    Input("merge-list-button", "n_clicks"),
+    State("cell_outline_graph", "figure"),
+    prevent_initial_call=True,
+)
+def send_to_merge_list(n_clicks, cell_outline_figure):
+    if n_clicks:
+        if cell_outline_figure:
+            selected_cells = [int(cell["name"][5:]) for cell in cell_outline_figure["data"] if cell["name"] != "NaN"]
+            return selected_cells
+    else:
         raise PreventUpdate
 
 
