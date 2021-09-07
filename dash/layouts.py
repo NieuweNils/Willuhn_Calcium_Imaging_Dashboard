@@ -467,6 +467,12 @@ double_cell_selector = html.Div([
                              className="col-4"),
                     html.Div(id="correlation-plot",
                              className="col-4"),
+                    html.Div([
+                        html.Div(id="drop-down-delete-placeholder"),
+                        html.Div(id="delete-button-placeholder"),
+                        ],
+                        className="col-4"
+                    )
                 ], className="row"
                 ),
 
@@ -477,14 +483,9 @@ double_cell_selector = html.Div([
                     html.Div([dcc.Graph(id="trace-plot")],
                              className="col-4"),
                     html.Div([
-                        html.Div(id="drop-down-delete-placeholder"),
-                        html.Div(id="delete-button-placeholder"),
-                        html.Div(id="drop-down-merge-placeholder"),
+                        html.Div(id="merge-table-placeholder"),
                         html.Div(id="merge-button-placeholder"),
-                        html.Div(id="drop-down-traces-placeholder"),
-                        html.Div(id="output-drop-down-delete"),
                     ],
-                        id="actionable-buttons",
                         className="col-4"
                     ),
                 ], className="row"
@@ -496,6 +497,12 @@ double_cell_selector = html.Div([
                         id="multi-action-buttons",
                         className="col-4"
                     ),
+                    html.Div(id="drop-down-traces-placeholder",
+                         className="col-4"),
+                    # html.Div(id="not_used",
+                    #          className="col-4"),
+                    # html.Div(id="check_text",
+                    #          className="col-4")
                     ], className="row"
                 ),
                 # TODO: rename the intermediates to "initial", and the others to "updates"
@@ -512,15 +519,16 @@ double_cell_selector = html.Div([
                 dcc.Store(id="neighbours_intermediate"),
                 dcc.Store(id="list_of_cells"),
                 dcc.Store(id="list_of_cells_intermediate"),
+                dcc.Store(id="merge_list"),
                 dcc.Store(id="trigger-cell-shape-plot"),
                 dcc.Store(id="startup_trigger"),
                 dcc.Store(id="correlations"),
                 dcc.Store(id="correlations_intermediate"),
                 dcc.Interval(id='interval-component-trace-plot',
-                             interval=2000,  # in milliseconds
+                             interval=1000,  # in milliseconds
                              n_intervals=0),
-            ])
-
+                dcc.Store(id="selected_cells"),
+            ]),
         ],
             className="col-10",
             style=graph_col_style

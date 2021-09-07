@@ -188,7 +188,6 @@ def get_drop_down_list(list_of_cells):
 # TODO: change this to make use of the rows of neighbouring cells
 @app.callback([
     Output("drop-down-delete-placeholder", "children"),
-    Output("drop-down-merge-placeholder", "children"),
     Output("drop-down-traces-placeholder", "children"),
 ],
     [Input("list_of_cells_intermediate", "data"),
@@ -208,8 +207,6 @@ def update_drop_downs(uploaded_data, cached_data):
 
     drop_downs = [dcc.Dropdown(id="drop-down-delete", options=drop_down_list, multi=True,
                                placeholder="Select cells to delete"),
-                  dcc.Dropdown(id="drop-down-merge", options=drop_down_list, multi=True,
-                               placeholder="Select cells to merge"),
                   dcc.Dropdown(id="drop-down-traces", options=drop_down_list, multi=True,
                                placeholder="Select cells to show their traces")]
 
@@ -532,54 +529,104 @@ def create_send_to_delete_and_merge_list_buttons(figure, del_btn, merge_btn):
 @app.callback(
     Output("drop-down-delete", "value"),
     Input("delete-list-button", "n_clicks"),
-    [State("cell_outline_graph", "figure"),
+    [State("selected_cells", "data"),
      State("drop-down-delete", "value")],
     prevent_initial_call=True,
 )
 def send_to_delete_list(n_clicks,
-                        cell_outline_figure, curr_drop_down):
+                        selected_cells, curr_drop_down):
     if n_clicks:
-        if cell_outline_figure:
-            selected_cells = [int(cell["name"][5:]) for cell in cell_outline_figure["data"] if cell["name"] != "NaN"]
+        if selected_cells:
             new_drop_down = (list(curr_drop_down) + selected_cells) if curr_drop_down else selected_cells
             return new_drop_down
+        else:
+            raise PreventUpdate
     else:
         raise PreventUpdate
 
 
 @app.callback(
-    Output("drop-down-merge", "value"),
-    Input("merge-list-button", "n_clicks"),
-    State("cell_outline_graph", "figure"),
+    Output("merge-table-placeholder", "children"),
+    Input("merge_list", "data"),
     prevent_initial_call=True,
 )
-def send_to_merge_list(n_clicks, cell_outline_figure):
-    if n_clicks:
-        if cell_outline_figure:
-            selected_cells = [int(cell["name"][5:]) for cell in cell_outline_figure["data"] if cell["name"] != "NaN"]
-            return selected_cells
-    else:
+def update_merge_table(merge_list):
+    merge_df = pd.DataFrame(merge_list)
+    table_columns = [{"name": i, "id": i} for i in merge_df.columns]
+    table_data = merge_df.to_dict("records")
+    merge_table = dash_table.DataTable(id="merge-datatable",
+                                       columns=table_columns,
+                                       data=table_data,
+                                       fixed_rows={"headers": True},
+                                       style_header={
+                                           "backgroundColor": "transparent",
+                                           "fontFamily": font_family,
+                                           "font-size": "1rem",
+                                           "color": colours["light-green"],
+                                           "border": "0px transparent",
+                                           "textAlign": "center",
+                                       },
+                                       style_table={
+                                           "height": "100%",
+                                           "width": "100%",
+                                           "marginLeft": "0%",
+                                           "marginRight": "auto",
+                                           "overflowY": "auto",
+                                       },
+                                       style_cell={
+                                               "backgroundColor": colours["dark-green"],
+                                               "color": colours["white"],
+                                               "border": "0px transparent",
+                                               "textAlign": "center",
+                                           }
+                                       )
+    return merge_table
+
+
+@app.callback(
+    Output("merge_list", "data"),
+    Input("merge-list-button", "n_clicks"),
+    [State("selected_cells", "data"),
+     State("merge_list", "data")],
+    prevent_initial_call=True,
+)
+def send_to_merge_list(n_clicks, selected_cells, merge_list):
+    print("send_to_merge_list called")
+    if not n_clicks:
         raise PreventUpdate
+    if merge_list:
+        if selected_cells:
+            if any(selected_cells==sublist for sublist in merge_list):
+                print("you already added this list!")
+                raise PreventUpdate
+            else:
+                merge_list.append(selected_cells)
+                return merge_list
+        else:
+            raise PreventUpdate
+    else:  # creating the merge_list for the first time
+        if selected_cells:
+            return [selected_cells]
+        else:
+            return []
 
 
 @app.callback(
     Output("trace-plot", "figure"),
     [Input("drop-down-traces", "value"),
-     Input("interval-component-trace-plot", "n_intervals")
-     ],
-    State("cell_outline_graph", "figure"),
+     Input("selected_cells", "data")],
     State("fluorescence_traces_intermediate", "data"),
     State("fluorescence_traces", "data"),
     State("trace-plot", "figure"),
     prevent_initial_call=True
 )
-def update_trace_plot(cells_to_display, n_intervals,
-                      cell_outline_figure, traces_uploaded, traces_cached,
+def update_trace_plot(drop_down_vals, selected_cells,
+                      traces_uploaded, traces_cached,
                       trace_figure):
     start = time.time()
     print("update_trace_plot called")
     # catch exceptions:
-    if not (cells_to_display or cell_outline_figure) or traces_uploaded is None:
+    if not (drop_down_vals or selected_cells) or traces_uploaded is None:
         raise PreventUpdate
     # load correct traces
     if not traces_cached:
@@ -587,26 +634,38 @@ def update_trace_plot(cells_to_display, n_intervals,
     else:
         traces = traces_cached
     # make trace plot
-    if cells_to_display:  # use drop down as source
-        # check what cells are displayed in trace_plot
-        if trace_figure["data"]:
-            cells = []
-            for trace in trace_figure["data"]:
-                cell = int(trace["name"][5:])
-                cells.append(cell)
-            # do nothing if the right cells are displayed
-            if cells == cells_to_display:
-                raise PreventUpdate
-            else:
-                trace_plot = line_chart(cells_to_display, traces)
-                print(f"update_trace_plot took {time.time()-start}s")
-                return trace_plot
-    elif cell_outline_figure:  # use contour plot as source
-        selected_cells = [int(cell["name"][5:]) for cell in cell_outline_figure["data"] if cell["name"] != "NaN"]
-        trace_plot = line_chart(selected_cells, traces)
+    cells = []
+    cells_to_display = []
+    if trace_figure:  # check what cells are displayed in trace_plot
+        for trace in trace_figure["data"]:
+            cell = int(trace["name"][5:])
+            cells.append(cell)
+    if drop_down_vals:  # use drop down as source (OVERWRITES CONTOUR PLOT SOURCE)
+        if cells != drop_down_vals:  # do nothing if the right cells are displayed
+            cells_to_display = drop_down_vals
+    elif selected_cells:  # use contour plot as MAIN source
+        if cells != selected_cells:  # do nothing if the right cells are displayed
+            cells_to_display = selected_cells
+    if cells_to_display:
+        trace_plot = line_chart(cells_to_display, traces)
         print(f"update_trace_plot took {time.time() - start}s")
         return trace_plot
 
-    print("uncaught exception in update_trace_plot(), check out what's happening")
+    print("uncaught exception in update_trace_plot(), check out what's happening!")
     raise PreventUpdate
 
+
+@app.callback(Output("selected_cells", "data"),
+              Input("interval-component-trace-plot", "n_intervals"),
+              [State("cell_outline_graph", "figure"),
+              State("selected_cells", "data")],
+              prevent_inital_call=True,
+              )
+def update_trace_plot_trigger(interval_trigger, cell_outline_figure, cell_state):
+    if cell_outline_figure:
+        selected_cells = [int(cell["name"][5:]) for cell in cell_outline_figure["data"] if cell["name"] != "NaN"]
+        if selected_cells == cell_state:
+            raise PreventUpdate
+        return selected_cells
+    else:
+        raise PreventUpdate
