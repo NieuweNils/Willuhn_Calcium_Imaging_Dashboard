@@ -220,8 +220,8 @@ def update_drop_downs(uploaded_data, cached_data):
     prevent_initial_call=True,
 )
 def create_delete_and_merge_buttons(timestamp):
-    return [html.Button("Delete selected cells", id="delete-button", style=upload_button_style),
-            html.Button("Merge selected cells", id="merge-button", style=upload_button_style)]
+    return [html.Button("Delete these cells", id="delete-button", style=upload_button_style),
+            html.Button("Merge these cells", id="merge-button", style=upload_button_style)]
 
 
 # TODO: split this up into several callbacks
@@ -508,7 +508,8 @@ def update_cell_shape_plots(ts_nb_cache, ts_nb_upload,
 
 @app.callback(
     [Output("send-to-delete-list-button-placeholder", "children"),
-     Output("send-to-merge-list-button-placeholder", "children")],
+     Output("send-to-merge-list-button-placeholder", "children"),
+     Output("remove-from-merge-list-button-placeholder", "children")],
     Input("cell_outline_graph", "figure"),
     [State("send-to-delete-list-button-placeholder", "children"),
      State("send-to-merge-list-button-placeholder", "children")],
@@ -519,8 +520,9 @@ def create_send_to_delete_and_merge_list_buttons(figure, del_btn, merge_btn):
     if figure:
         if not del_btn or merge_btn:
             print("creating send_to_list_buttons")
-            return [html.Button("Add selected cells to delete list", id="delete-list-button", style=upload_button_style),
-                    html.Button("Add selected cells to merge list", id="merge-list-button", style=upload_button_style)]
+            return [html.Button("ADD to DELETE list", id="to-delete-list-button", style=upload_button_style),
+                    html.Button("ADD to MERGE list", id="to-merge-list-button", style=upload_button_style),
+                    html.Button("REMOVE from MERGE list", id="remove-from-merge-list-button", style=upload_button_style)]
     else:
         print("preventing update of send_to_list_buttons")
         raise PreventUpdate
@@ -528,7 +530,7 @@ def create_send_to_delete_and_merge_list_buttons(figure, del_btn, merge_btn):
 
 @app.callback(
     Output("drop-down-delete", "value"),
-    Input("delete-list-button", "n_clicks"),
+    Input("to-delete-list-button", "n_clicks"),
     [State("selected_cells", "data"),
      State("drop-down-delete", "value")],
     prevent_initial_call=True,
@@ -585,29 +587,38 @@ def update_merge_table(merge_list):
 
 @app.callback(
     Output("merge_list", "data"),
-    Input("merge-list-button", "n_clicks"),
+    [Input("to-merge-list-button", "n_clicks"),
+     Input("remove-from-merge-list-button", "n_clicks")],
     [State("selected_cells", "data"),
      State("merge_list", "data")],
     prevent_initial_call=True,
 )
-def send_to_merge_list(n_clicks, selected_cells, merge_list):
-    print("send_to_merge_list called")
-    if not n_clicks:
+def update_merge_list(n_clicks_send, n_clicks_remove,
+                      selected_cells, merge_list):
+    print("update_merge_list called")
+    if not (n_clicks_send or n_clicks_remove):
         raise PreventUpdate
+    ctx = callback_context
     if merge_list:
         if selected_cells:
-            if any(selected_cells==sublist for sublist in merge_list):
-                print("you already added this list!")
-                raise PreventUpdate
-            else:
-                merge_list.append(selected_cells)
+            if "remove" in ctx.triggered[0]["prop_id"].split(".")[0]:
+                merge_list = [sublist for sublist in merge_list if sublist!=selected_cells]
                 return merge_list
+            else:
+                if any(selected_cells == sublist for sublist in merge_list):
+                    print("you already added this list!")
+                    raise PreventUpdate
+                else:
+                    merge_list.append(selected_cells)
+                    return merge_list
         else:
             raise PreventUpdate
-    else:  # creating the merge_list for the first time
-        if selected_cells:
+    else:
+        if "remove" in ctx.triggered[0]["prop_id"].split(".")[0]:
+            raise PreventUpdate
+        if selected_cells:  # creating the merge_list for the first time
             return [selected_cells]
-        else:
+        else:               # Don't think this ever gets called
             return []
 
 
