@@ -18,7 +18,7 @@ server = Flask(__name__)
 # TODO: put in separate file
 
 # For position
-data_after_CNMF_E = loadmat(""../data/concat_may_NoRMCorre_results.mat"")
+data_after_CNMF_E = loadmat("../data/concat_may_NoRMCorre_results.mat")
 data_after_CNMF_E = data_after_CNMF_E["results"]
 
 # For animated line plot of Fluorescence trace
