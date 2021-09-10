@@ -277,12 +277,20 @@ def line_chart(cells_to_display, traces, layout_base=standard_layout):
     return figure
 
 
-def contour_plot(locations, background, cells_per_row, layout_base=standard_layout):
+def contour_plot(loc_dict, background, cells_per_row, layout_base=standard_layout):
     d1, d2 = (len(background), len(background[0]))
     layout_base = copy(layout_base)  # Copy by value instead of reference
 
+    #  extract coordinates
+    locations = np.array([np.array(lst) for lst in loc_dict.values()]).T
+    contour_matrix = retrieve_contour_coordinates(locations=locations, background=background)
+    contour_coordinates = {}
+    i = 0
+    for cell in loc_dict:
+        contour_coordinates[cell] = contour_matrix[i]
+        i += 1
+
     # create frames
-    contour_coordinates = retrieve_contour_coordinates(locations=locations, background=background)
     frames = []
     for row in cells_per_row:
         contour_trace = []
@@ -293,7 +301,7 @@ def contour_plot(locations, background, cells_per_row, layout_base=standard_layo
                                                 mode="lines",
                                                 name="NaN"))
             else:
-                coordinate_vector = contour_coordinates[int(cell)]
+                coordinate_vector = contour_coordinates[str(int(cell))]
                 contour_trace.append(go.Scatter(x=coordinate_vector[:, 0],
                                                 y=coordinate_vector[:, 1],
                                                 mode="lines",

@@ -244,7 +244,7 @@ def create_delete_and_merge_buttons(timestamp):
         State("correlations_intermediate", "data"),
 
         State("drop-down-delete", "value"),
-        State("drop-down-merge", "value"),
+        State("merge_list", "data"),
 
         State("locations_dict", "data"),
         State("fluorescence_traces", "data"),
@@ -285,12 +285,15 @@ def update_data_stores(n_clicks_del, n_clicks_merge,
             print("no button clicks, raising PreventUpdate.")
             raise PreventUpdate
         if cells_to_be_merged:
-            updated_loc_dict = merge_locations_dict(locations=cached_loc_dict,merge_list=cells_to_be_merged)
-            updated_traces = merge_traces(traces=cached_traces, merge_list=cells_to_be_merged)
-            updated_cell_list = list(updated_traces.keys())
+            updated_locations = cached_loc_dict
+            updated_traces = cached_traces
+            for sublist in cells_to_be_merged:
+                updated_locations = merge_locations_dict(locations=updated_locations, merge_list=sublist)
+                updated_traces = merge_traces(traces=updated_traces, merge_list=sublist)
             updated_correlations = correlating_neurons(updated_traces).to_json()
-            print(f"update_drop_downs took {time.time() - start}s")
-            return [updated_loc_dict, updated_traces, updated_cell_list, updated_correlations]
+            updated_cell_list = list(updated_traces.keys())
+            print(f"update_data_stores took {time.time() - start}s")
+            return [updated_locations, updated_traces, updated_cell_list, updated_correlations]
         else:
             print("no cells to be merged, raising PreventUpdate")
             raise PreventUpdate
@@ -339,10 +342,13 @@ def update_neighbour_data(n_clicks, timestamp_dist, timestamp_cor,
     ctx = callback_context
     if ctx.triggered[0]['prop_id'].split('.')[0] == "neighbour-criteria-button":
         if n_clicks is None:
-            print("no delete button clicks, raising PreventUpdate.")
+            print("no button clicks, raising PreventUpdate.")
             raise PreventUpdate
-    distance_table = dist_cached if (dist_cached is not None) else dist_upload
-    correlation_table = cor_cached if (cor_cached is not None) else cor_upload
+    if dist_cached is not None and cor_cached is not None:
+        distance_table, correlation_table = (dist_cached, cor_cached)
+    else:
+        distance_table, correlation_table = (dist_upload, cor_upload)
+    # correlation_table = cor_cached if (cor_cached is not None) else cor_upload
 
     distance_array = np.array([[float(entry) for entry in array] for array in distance_table])  # because dash makes everything into a string for some reason
     correlation_df = pd.read_json(correlation_table)
@@ -458,7 +464,7 @@ def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached
         raise PreventUpdate
 
 
-# TODO: find out why this is not always triggered (and I think never by locations_intermediate)
+# TODO: find out why this is not triggered by an update in neighbour data
 @app.callback(
     [Output("cell-shape-plot-1", "children")],
     [Input("neighbours", "modified_timestamp"),
@@ -486,14 +492,13 @@ def update_cell_shape_plots(ts_nb_cache, ts_nb_upload,
         if cell_shape_plot is not None:
             print("updating cell shape plot")
         start_time = time.time()
-        loc_array = np.array([np.array(lst) for lst in loc_dict.values()]).T
         neighbour_df = pd.read_json(neighbours)
         duration = time.time() - start_time
         print(f"the data took {duration}s to load (using loc_dict & neighbour_df)")
         cells_per_row = [neighbour_df.loc[row] for row in neighbour_df.index]
 
         start_time = time.time()
-        cell_outline_figure = contour_plot(locations=loc_array,
+        cell_outline_figure = contour_plot(loc_dict=loc_dict,
                                            background=background_fluorescence,
                                            cells_per_row=cells_per_row)
         duration = time.time() - start_time
@@ -585,24 +590,28 @@ def update_merge_table(merge_list):
     return merge_table
 
 
+# TODO: clear the list after merging cells
 @app.callback(
     Output("merge_list", "data"),
     [Input("to-merge-list-button", "n_clicks"),
-     Input("remove-from-merge-list-button", "n_clicks")],
+     Input("remove-from-merge-list-button", "n_clicks"),
+     Input("merge-button", "n_clicks")],
     [State("selected_cells", "data"),
      State("merge_list", "data")],
     prevent_initial_call=True,
 )
-def update_merge_list(n_clicks_send, n_clicks_remove,
+def update_merge_list(n_clicks_send, n_clicks_remove, n_clicks_merge,
                       selected_cells, merge_list):
     print("update_merge_list called")
-    if not (n_clicks_send or n_clicks_remove):
+    if not (n_clicks_send or n_clicks_remove or n_clicks_merge):
         raise PreventUpdate
     ctx = callback_context
+    if ctx.triggered[0]["prop_id"].split(".")[0] == "merge-button":
+        return []
     if merge_list:
         if selected_cells:
             if "remove" in ctx.triggered[0]["prop_id"].split(".")[0]:
-                merge_list = [sublist for sublist in merge_list if sublist!=selected_cells]
+                merge_list = [sublist for sublist in merge_list if sublist != selected_cells]
                 return merge_list
             else:
                 if any(selected_cells == sublist for sublist in merge_list):
