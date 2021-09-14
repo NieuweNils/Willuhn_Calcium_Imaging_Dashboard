@@ -4,9 +4,11 @@ Dashboard for daily use for the Willuhn lab's calcium-imaging research, made usi
 ## How to run:
 
 
-```cd /dash```
-```pip install -r requirements.txt``` (first time)
-```python index.py```
+```
+cd /dash
+pip install -r requirements.txt  # (first time)
+python index.py
+```
 
 once running, the dashboard is available through http://localhost:8050/
 
