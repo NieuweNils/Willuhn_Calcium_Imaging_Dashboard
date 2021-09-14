@@ -100,7 +100,7 @@ def drop_down(frame_names):
         'buttons':
             [
                 {"args": [[name], frame_args(0)],
-                 'label': f'{name[:-13]}', # take off the " + neighbours" part of the name
+                 'label': f'{name}', # take off the " + neighbours" part of the name
                  'method': "animate", } for name in frame_names
             ],
         'direction': 'up',
@@ -183,8 +183,10 @@ def layout_cell_outline_plot(layout, frame_names, background, d1, d2):
     slider_dict = slider_base()
     slider_dict["steps"] = slider_steps(frame_names)
     layout["sliders"] = [slider_dict]
+    # take of " + neighbours" if present
+    drop_down_names = [name[:-13] if len(name) > 13 else name for name in frame_names]
 
-    drop_down_settings = drop_down(frame_names)
+    drop_down_settings = drop_down(drop_down_names)
     layout["updatemenus"] = [drop_down_settings]
 
     # convert background to image
@@ -311,8 +313,12 @@ def contour_plot(loc_dict, background, cells_per_row, layout_base=standard_layou
                                                 },
                                                 name=f"cell {int(cell)}"))
         first_cell = int(row[0])
+        if len(row) > 1:
+            name = f"cell {first_cell} + neighbours"
+        else:
+            name = f"cell {first_cell}"
         curr_frame = go.Frame(data=contour_trace,
-                              name=f"cell {first_cell} + neighbours")  # TODO: check if this still works after locations switches from df to dict
+                              name=name)
         frames.append(curr_frame)
 
     frame_names = [frame["name"] for frame in frames]

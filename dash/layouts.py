@@ -470,6 +470,8 @@ double_cell_selector = html.Div([
                     html.Div([
                         html.Div(id="drop-down-delete-placeholder"),
                         html.Div(id="delete-button-placeholder"),
+                        html.Div(id="merge-table-placeholder"),
+                        html.Div(id="merge-button-placeholder"),
                         ],
                         className="col-4"
                     )
@@ -478,16 +480,12 @@ double_cell_selector = html.Div([
 
                 get_emptyrow(),
                 html.Div([
-                    html.Div(id="cell-shape-plot-1",
+                    html.Div(id="cell-shape-plot-multiple",
                              className="col-4"),
                     html.Div([dcc.Graph(id="trace-plot")],
                              className="col-4"),
-                    html.Div([
-                        html.Div(id="merge-table-placeholder"),
-                        html.Div(id="merge-button-placeholder"),
-                    ],
-                        className="col-4"
-                    ),
+                    html.Div(id="cell-shape-plot-single",
+                             className="col-4"),
                 ], className="row"
                 ),
                 html.Div([

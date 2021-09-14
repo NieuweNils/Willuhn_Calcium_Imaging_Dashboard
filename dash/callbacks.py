@@ -466,7 +466,8 @@ def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached
 
 # TODO: find out why this is not triggered by an update in neighbour data
 @app.callback(
-    [Output("cell-shape-plot-1", "children")],
+    [Output("cell-shape-plot-multiple", "children"),
+     Output("cell-shape-plot-single", "children")],
     [Input("neighbours", "modified_timestamp"),
      Input("neighbours_intermediate", "modified_timestamp"),
      ],
@@ -475,7 +476,7 @@ def update_correlation_plot(dist_uploaded, dist_cached, cor_uploaded, cor_cached
      State("background_fluorescence", "data"),
      State("neighbours", "data"),
      State("neighbours_intermediate", "data"),
-     State("cell-shape-plot-1", "children"),
+     State("cell-shape-plot-multiple", "children"),
      ],
 )
 def update_cell_shape_plots(ts_nb_cache, ts_nb_upload,
@@ -495,16 +496,23 @@ def update_cell_shape_plots(ts_nb_cache, ts_nb_upload,
         neighbour_df = pd.read_json(neighbours)
         duration = time.time() - start_time
         print(f"the data took {duration}s to load (using loc_dict & neighbour_df)")
-        cells_per_row = [neighbour_df.loc[row] for row in neighbour_df.index]
+        cells_per_row_multiple = [neighbour_df.loc[row] for row in neighbour_df.index]
+        cells_per_row_single = [[int(cell)] for cell in loc_dict.keys()]
 
         start_time = time.time()
-        cell_outline_figure = contour_plot(loc_dict=loc_dict,
-                                           background=background_fluorescence,
-                                           cells_per_row=cells_per_row)
+        cell_outline_figure_multiple = contour_plot(loc_dict=loc_dict,
+                                                    background=background_fluorescence,
+                                                    cells_per_row=cells_per_row_multiple)
+
+        cell_outline_figure_single = contour_plot(loc_dict=loc_dict,
+                                                  background=background_fluorescence,
+                                                  cells_per_row=cells_per_row_single)
         duration = time.time() - start_time
         print(f"that figure took {duration}s to make")
-        return [dcc.Graph(id="cell_outline_graph",
-                          figure=cell_outline_figure),
+        return [dcc.Graph(id="cell_outline_graph_multiple",
+                          figure=cell_outline_figure_multiple),
+                dcc.Graph(id="cell_outline_graph_single",
+                          figure=cell_outline_figure_single),
                 ]
     else:  # no locations, neighbours, or either (neighbours should always be presents thought, right?)
         print("update_cell_shape_plots was triggered by an unknown, unexpected trigger. raising PreventUpdate")
@@ -515,7 +523,7 @@ def update_cell_shape_plots(ts_nb_cache, ts_nb_upload,
     [Output("send-to-delete-list-button-placeholder", "children"),
      Output("send-to-merge-list-button-placeholder", "children"),
      Output("remove-from-merge-list-button-placeholder", "children")],
-    Input("cell_outline_graph", "figure"),
+    Input("cell_outline_graph_multiple", "figure"),
     [State("send-to-delete-list-button-placeholder", "children"),
      State("send-to-merge-list-button-placeholder", "children")],
     prevent_initial_call=True,
@@ -677,7 +685,7 @@ def update_trace_plot(drop_down_vals, selected_cells,
 
 @app.callback(Output("selected_cells", "data"),
               Input("interval-component-trace-plot", "n_intervals"),
-              [State("cell_outline_graph", "figure"),
+              [State("cell_outline_graph_multiple", "figure"),
               State("selected_cells", "data")],
               prevent_inital_call=True,
               )
